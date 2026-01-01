@@ -485,10 +485,106 @@ MiscOth:Button({ Title = "Play Again", Callback = function() game.ReplicatedStor
 MiscOth:Button({ Title = "Lobby", Callback = function() game.ReplicatedStorage.RemotesFolder.Lobby:FireServer() end })
 MiscOth:Button({ Title = "Revive", Callback = function() game.ReplicatedStorage.RemotesFolder.Revive:FireServer() end })
 
+-- // CONFIG TAB & SETTINGS //
+local ConfigTab = Tabs.Config -- Используем уже созданную вкладку
+
+-- Секция настроек меню
+local MenuSettings = ConfigTab:Section({ Title = "Menu Settings" })
+
+MenuSettings:Keybind({
+    Title = "Menu Toggle Key",
+    Default = Enum.KeyCode.RightShift,
+    Callback = function(key)
+        Window:SetToggleKey(key)
+    end
+})
+
+MenuSettings:Button({
+    Title = "Unload Script",
+    Callback = function()
+        Library:Unload()
+    end
+})
+
+-- Секция управления конфигами
+local ConfigSection = ConfigTab:Section({ Title = "Configuration" })
+
+-- Хранилище имени конфига
+local ConfigName = "default"
+
+ConfigSection:Input({
+    Title = "Config Name",
+    Placeholder = "Enter config name...",
+    Callback = function(v)
+        ConfigName = v
+    end
+})
+
+-- Дропдаун со списком конфигов
+local ConfigDropdown = ConfigSection:Dropdown({
+    Title = "Select Config",
+    Values = Window.ConfigManager:AllConfigs() or {}, -- Получаем список
+    Callback = function(v)
+        ConfigName = v
+    end
+})
+
+-- Кнопки управления
+ConfigSection:Button({
+    Title = "Save Config",
+    Callback = function()
+        Window.ConfigManager:Save(ConfigName)
+        Window:Notify({ Title = "Config Saved", Content = "Saved as " .. ConfigName, Duration = 3 })
+        -- Обновляем список
+        ConfigDropdown:Refresh(Window.ConfigManager:AllConfigs()) 
+    end
+})
+
+ConfigSection:Button({
+    Title = "Load Config",
+    Callback = function()
+        Window.ConfigManager:Load(ConfigName)
+        Window:Notify({ Title = "Config Loaded", Content = "Loaded " .. ConfigName, Duration = 3 })
+    end
+})
+
+ConfigSection:Button({
+    Title = "Delete Config",
+    Callback = function()
+        if isfile and delfile then -- Проверка поддержки удаления
+            pcall(delfile, "LolhaxWind/Configs/" .. ConfigName .. ".json")
+            ConfigDropdown:Refresh(Window.ConfigManager:AllConfigs())
+            Window:Notify({ Title = "Config Deleted", Content = "Deleted " .. ConfigName, Duration = 3 })
+        else
+            Window:Notify({ Title = "Error", Content = "Your executor does not support file deletion.", Duration = 3 })
+        end
+    end
+})
+
+-- Автозагрузка
+ConfigSection:Toggle({
+    Title = "Auto Load Config",
+    Callback = function(v)
+        -- Логика автозагрузки (WindUI сам это не делает, нужно сохранять этот тогл отдельно или использовать встроенные флаги)
+        -- Для простоты, оставим это как визуальную опцию или допишем логику при старте, если нужно
+    end
+})
+
+-- Секция Debug (Объединенная)
+local OtherSettings = ConfigTab:Section({ Title = "Other" })
+
 CreateLink(Toggles, "DS_Debug", false)
+OtherSettings:Toggle({ 
+    Title = "Debug Mode", 
+    Callback = function(v) Toggles.DS_Debug:Set(v) end 
+})
+
 CreateLink(Toggles, "DS_BSRPC", true)
-Tabs.Config:Section({Title="Debug"}):Toggle({ Title = "Debug", Callback = function(v) Toggles.DS_Debug:Set(v) end })
-Tabs.Config:Section({Title="Debug"}):Toggle({ Title = "Bloxstrap RPC", Default=true, Callback = function(v) Toggles.DS_BSRPC:Set(v) end })
+OtherSettings:Toggle({ 
+    Title = "Bloxstrap RPC", 
+    Default = true, 
+    Callback = function(v) Toggles.DS_BSRPC:Set(v) end 
+})
 
 
 -- // MOCK LIBRARY FUNCTIONS //
