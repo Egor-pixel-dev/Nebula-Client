@@ -49,73 +49,23 @@ local Tabs = {
 local GenAuto = Tabs.General:Section({ Title = "Automation" })
 
 -- Auto Interact
-CreateLink(Toggles, "GA_AutoInteract", false)
-CreateLink(Options, "GA_AutoInteract_K", "R") -- Keybind emulation
-GenAuto:Toggle({
-    Title = "Automatic Interact",
-    Callback = function(v) Toggles.GA_AutoInteract:Set(v) end
-})
-GenAuto:Keybind({
-    Title = "Auto Interact Key",
-    Default = Enum.KeyCode.R,
-    Callback = function(v) Options.GA_AutoInteract_K.State = true end -- Mock state for logic
-})
--- Keybind logic helper for logic loop
-Options.GA_AutoInteract_K.GetState = function() return game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode[Options.GA_AutoInteract_K.Value or "R"]) end
-
-
-CreateLink(Options, "GA_AutoInteract_Options", { ["Use Lockpick ( Doors )"] = false, ["Use Lockpick ( Other )"] = false, ["Ignore Light Sources"] = false, ["Ignore Can-Die"] = false })
-GenAuto:Dropdown({
-    Title = "Interact Options",
-    Multi = true,
-    Values = { "Use Lockpick ( Doors )", "Use Lockpick ( Other )", "Ignore Light Sources", "Ignore Can-Die" },
-    Callback = function(v) 
-        -- Convert List to Dictionary for logic compatibility
-        local t = {}
-        for _, val in pairs(v) do t[val] = true end
-        Options.GA_AutoInteract_Options:Set(t)
-    end
-})
-
--- Range Multiplier
-CreateLink(Options, "GA_AutoInteract_Range", 1)
-GenAuto:Slider({
-    Title = "Range Multiplier",
-    Value = { Min = 1, Max = 2, Default = 1 }, -- <-- ИСПРАВЛЕНО
-    Step = 0.1,
-    Callback = function(v) Options.GA_AutoInteract_Range:Set(v) end
-})
-
--- Fast Interact (Instant Use)
+-- Instant Interact (Мгновенное открытие)
 CreateLink(Toggles, "GA_InstantInteract", false)
 GenAuto:Toggle({
     Title = "Instant Interact",
     Flag = "GA_InstantInteract",
     Callback = function(v) 
         Toggles.GA_InstantInteract:Set(v)
-        
-        -- Логика быстрого взаимодействия
-        if v then
-            task.spawn(function()
-                local ProximityPromptService = game:GetService("ProximityPromptService")
-                while Toggles.GA_InstantInteract.Value and not Library.Unloaded do
-                    local prompt = ProximityPromptService.PromptButtonHoldBegan:Wait()
-                    if Toggles.GA_InstantInteract.Value then
-                        fireproximityprompt(prompt)
-                    end
-                end
-            end)
-        end
     end
 })
 
--- Loot Aura (Auto Open Drawers & Gold)
+-- Loot Aura (Пылесос предметов)
 CreateLink(Toggles, "GA_LootAura", false)
 GenAuto:Toggle({
-    Title = "Loot Aura (Distance)",
+    Title = "Loot Aura (Items & Gold)",
     Flag = "GA_LootAura",
     Callback = function(v) 
-        Toggles.GA_LootAura:Set(v)
+        Toggles.GA_LootAura:Set(v) 
     end
 })
 
@@ -1185,49 +1135,74 @@ local CameraAdded = workspace.CurrentCamera.ChildAdded:Connect(function(v)
     end
 end)
 
--- Запускаем тяжелые задачи в отдельном потоке с задержкой (чтобы не фризило)
+-- Запускаем тяжелые задачи (Loot Aura, Instant Interact)
 task.spawn(function()
-    while task.wait(0.15) and not Library.Unloaded do -- 0.15 сек задержки уберет лаги
+    while task.wait(0.2) and not Library.Unloaded do
         pcall(function()
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Collision") then
+            local Character = LocalPlayer.Character
+            if Character and Character:FindFirstChild("Collision") then
+                local RootPart = Character.PrimaryPart or Character:FindFirstChild("HumanoidRootPart")
                 
-                -- Авто Интеракт (перенесен сюда)
-                if Toggles.GA_AutoInteract.Value and Options.GA_AutoInteract_K:GetState() then
-                    -- Тут должна быть твоя логика перебора CurrentRoom (как в оригинале)
-                    -- Но самое главное - FindLoot
-                    FindLoot(workspace.Drops)
+                -- // INSTANT INTERACT (Мгновенное нажатие) //
+                if Toggles.GA_InstantInteract.Value then
+                    -- Перебираем все промпты рядом и ставим им длительность 0
+                    for _, prompt in pairs(workspace:GetDescendants()) do
+                        if prompt:IsA("ProximityPrompt") then
+                            if prompt.HoldDuration > 0 then
+                                prompt.HoldDuration = 0
+                            end
+                        end
+                    end
                 end
 
-                -- Другие тяжелые проверки можно перенести сюда
-				 -- НОВЫЙ LOOT AURA (Вставь сюда)
-                if Toggles.GA_LootAura.Value then
-                    local root = LocalPlayer.Character.HumanoidRootPart
+                -- // LOOT AURA (Ящики, Золото, Предметы) //
+                if Toggles.GA_LootAura.Value and RootPart then
                     local CurrentRoom = Rooms[LocalPlayer:GetAttribute("CurrentRoom")]
+                    
                     if CurrentRoom then
                         for _, v in pairs(CurrentRoom:GetDescendants()) do
                             if v:IsA("Model") then
-                                local prompt
+                                local Prompt
+                                
+                                -- 1. Ящики (DrawerContainer)
                                 if v.Name == "DrawerContainer" then
                                     local knob = v:FindFirstChild("Knobs")
-                                    if knob then prompt = knob:FindFirstChild("ActivateEventPrompt") end
+                                    if knob then Prompt = knob:FindFirstChild("ActivateEventPrompt") end
+                                
+                                -- 2. Золото (GoldPile)
                                 elseif v.Name == "GoldPile" then
-                                    prompt = v:FindFirstChild("LootPrompt")
-                                elseif v.Name:sub(1,8) == "ChestBox" then
-                                    prompt = v:FindFirstChild("ActivateEventPrompt")
+                                    Prompt = v:FindFirstChild("LootPrompt")
+                                
+                                -- 3. Предметы (PickupItem, KeyObtain и др.)
+                                elseif v:FindFirstChild("ModulePrompt") then
+                                    Prompt = v.ModulePrompt
+                                
+                                -- 4. Сундуки (ChestBox)
+                                elseif v.Name:sub(1, 8) == "ChestBox" then
+                                    Prompt = v:FindFirstChild("ActivateEventPrompt")
+                                
+                                -- 5. Мелочь на столах (Rolltop)
                                 elseif v.Name == "RolltopContainer" then
-                                    prompt = v:FindFirstChild("ActivateEventPrompt")
+                                    Prompt = v:FindFirstChild("ActivateEventPrompt")
                                 end
 
-                                if prompt then
-                                    local interact = prompt:GetAttribute("Interactions")
-                                    if not interact and (root.Position - prompt.Parent.Position).Magnitude <= 14 then -- Дистанция 14
-                                        fireproximityprompt(prompt)
+                                -- Активация
+                                if Prompt and Prompt.Enabled then
+                                    -- Проверяем, не открыто ли уже (для ящиков)
+                                    local Interactions = Prompt:GetAttribute("Interactions")
+                                    if not Interactions then
+                                        -- Дистанция
+                                        local ObjPos = v:GetPivot().Position
+                                        if (RootPart.Position - ObjPos).Magnitude <= 15 then
+                                            fireproximityprompt(Prompt)
+                                        end
                                     end
                                 end
                             end
                         end
                     end
                 end
+                
             end
         end)
     end
