@@ -1208,7 +1208,37 @@ task.spawn(function()
     end
 end)
 
+-- [[ ФИКС ОТ ВЫЛЕТОВ (SAFETY PATCH) ]] --
+-- Этот код проверит, все ли настройки существуют. Если нет — создаст их, чтобы не было ошибки "attempt to index nil".
+local function SafeCheck(Table, Name, Default)
+    if not Table[Name] then
+        Table[Name] = { Value = Default, OnChanged = function() end, Set = function(self, v) self.Value = v end }
+    end
+end
 
+-- Проверяем все критические настройки, используемые в RenderStepped
+SafeCheck(Toggles, "MM_Walkspeed", false)
+SafeCheck(Options, "MM_Walkspeed_S", 20)
+SafeCheck(Options, "MM_Walkspeed_Boost", 0)
+SafeCheck(Toggles, "MM_NoAcceleration", false)
+
+SafeCheck(Toggles, "EB_ACManipulate", false)
+SafeCheck(Options, "EB_ACManipulate_K", { GetState = function() return false end }) -- Заглушка для кейбинда
+
+SafeCheck(Options, "VV_FieldOfView", 70)
+SafeCheck(Toggles, "VV_NoCamShake", false)
+SafeCheck(Toggles, "VV_Thirdperson", false)
+SafeCheck(Toggles, "VV_ViewmodelOffset", false)
+SafeCheck(Options, "VV_ViewmodelOffset_X", 0)
+SafeCheck(Options, "VV_ViewmodelOffset_Y", 0)
+SafeCheck(Options, "VV_ViewmodelOffset_Z", 0)
+
+SafeCheck(Toggles, "VR_NoHaltEffect", false)
+SafeCheck(Toggles, "VR_NoHasteEffect", false)
+
+SafeCheck(Toggles, "GA_InstantInteract", false)
+SafeCheck(Toggles, "GA_LootAura", false)
+-- [[ КОНЕЦ ФИКСА ]] --
 
 local Connections = {
     game:GetService("RunService").RenderStepped:Connect(function()
