@@ -677,39 +677,43 @@ function Esp(Parent, TextAdornee, Text, Color, OutlineColor)
     BillboardGui.Adornee = TextAdornee
     BillboardGui.AlwaysOnTop = true
     BillboardGui.Name = "_LOLHAXBG"
-    BillboardGui.Size = UDim2.fromScale(1, 1)
+    BillboardGui.Size = UDim2.fromOffset(200, 50) -- Фиксированный размер
+    BillboardGui.ExtentsOffset = Vector3.new(0, 0, 0) -- Прямо на объекте
     BillboardGui.Enabled = true
 
     Highlight.Name = "_LOLHAXHL"
-
-    TextLabel.Size = UDim2.fromScale(1, 1)
-    TextLabel.TextStrokeTransparency = 0
-    TextLabel.Font = Enum.Font[Options.ESPS_Font.Value]
-    TextLabel.TextSize = Options.ESPS_FontSize.Value
-    TextLabel.TextColor3 = Color
-    TextLabel.BackgroundTransparency = 1
-
     Highlight.Adornee = Parent
-
     Highlight.FillColor = Color
     Highlight.OutlineColor = OutlineColor or Color
+    Highlight.FillTransparency = Options.ESPS_FillTransparency.Value or 0.5
+    Highlight.OutlineTransparency = Options.ESPS_OutlineTransparency.Value or 0
 
-    TextLabel.TextTransparency = 1
-    Highlight.FillTransparency = 1
-    Highlight.OutlineTransparency = 1
-
-    TextLabel:SetAttribute("Text", Text)
+    TextLabel.Size = UDim2.fromScale(1, 1)
+    TextLabel.BackgroundTransparency = 1 -- УБИРАЕМ СЕРУЮ ТАБЛИЧКУ
+    TextLabel.TextStrokeTransparency = 0 -- ЧЕРНАЯ ОБВОДКА (как в оригинале)
+    TextLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    
+    -- Шрифт и размер как в настройках
+    pcall(function() 
+        TextLabel.Font = Enum.Font[Options.ESPS_Font.Value or "RobotoMono"] 
+    end)
+    TextLabel.TextSize = Options.ESPS_FontSize.Value or 18
+    TextLabel.TextColor3 = Color -- Цвет текста совпадает с цветом ESP
+    TextLabel.Text = Text -- Сразу ставим правильный текст
 
     task.spawn(function()
-        while Parent and not Library.Unloaded and task.wait() do
-            local Distance = (workspace.CurrentCamera.CFrame.Position - Parent:GetPivot().Position).Magnitude
-            TextLabel.Text = Text.."\n[ "..string.format(Distance <= 9.9 and "%.1f" or "%.0f", Distance).." ]"
+        while Parent and Parent.Parent and not Library.Unloaded do
+            local cam = workspace.CurrentCamera
+            if cam then
+                local Distance = (cam.CFrame.Position - Parent:GetPivot().Position).Magnitude
+                TextLabel.Text = string.format("%s\n[%.0f]", Text, Distance)
+            end
+            task.wait(0.1) -- Обновляем дистанцию раз в 0.1 сек
         end
+        -- Если объект удален, чистим GUI
+        if BillboardGui then BillboardGui:Destroy() end
+        if Highlight then Highlight:Destroy() end
     end)
-
-    game:GetService("TweenService"):Create( Highlight, TweenInfo.new( Options.ESPS_FadeTime.Value ), { FillTransparency = Options.ESPS_FillTransparency.Value } ):Play()
-    game:GetService("TweenService"):Create( Highlight, TweenInfo.new( Options.ESPS_FadeTime.Value ), { OutlineTransparency = Options.ESPS_OutlineTransparency.Value } ):Play()
-    game:GetService("TweenService"):Create( TextLabel, TweenInfo.new( Options.ESPS_FadeTime.Value ), { TextTransparency = 0 } ):Play()
 
     return Highlight, TextLabel
 end
