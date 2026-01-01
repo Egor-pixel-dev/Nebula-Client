@@ -30,7 +30,7 @@ end
 
 -- // UI SETUP //
 local Window = WindUI:CreateWindow({
-    Title = "LOLHAX | " .. game.Players.LocalPlayer.Name,
+    Title = "NexusHack | " .. game.Players.LocalPlayer.Name,
     Icon = "rbxassetid://90305907167101", -- LX Logo placeholder or generic
     Folder = "LolhaxWind",
     Transparent = true 
