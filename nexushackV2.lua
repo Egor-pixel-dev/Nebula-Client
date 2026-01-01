@@ -77,10 +77,12 @@ GenAuto:Dropdown({
     end
 })
 
+-- Range Multiplier
 CreateLink(Options, "GA_AutoInteract_Range", 1)
 GenAuto:Slider({
     Title = "Range Multiplier",
-    Min = 1, Max = 2, Default = 1, Step = 0.1,
+    Value = { Min = 1, Max = 2, Default = 1 }, -- <-- ИСПРАВЛЕНО
+    Step = 0.1,
     Callback = function(v) Options.GA_AutoInteract_Range:Set(v) end
 })
 
@@ -100,11 +102,49 @@ GenAuto:Toggle({ Title = "Automatic Hide", Callback = function(v) Toggles.GA_Aut
 CreateLink(Toggles, "GA_AutoHide_VisCheck", false)
 GenAuto:Toggle({ Title = "Prediction Visible Check", Callback = function(v) Toggles.GA_AutoHide_VisCheck:Set(v) end })
 
+-- Prediction Time
 CreateLink(Options, "GA_AutoHide_PredictionTime", 0.5)
-GenAuto:Slider({ Title = "Prediction Time", Min = 0.1, Max = 1.5, Default = 0.5, Step = 0.1, Callback = function(v) Options.GA_AutoHide_PredictionTime:Set(v) end })
+GenAuto:Slider({ 
+    Title = "Prediction Time", 
+    Value = { Min = 0.1, Max = 1.5, Default = 0.5 }, -- <-- ИСПРАВЛЕНО
+    Step = 0.1, 
+    Callback = function(v) Options.GA_AutoHide_PredictionTime:Set(v) end 
+})
+-- Range Multiplier
+CreateLink(Options, "GA_AutoInteract_Range", 1)
+GenAuto:Slider({
+    Title = "Range Multiplier",
+    Value = { Min = 1, Max = 2, Default = 1 }, -- <-- ИСПРАВЛЕНО
+    Step = 0.1,
+    Callback = function(v) Options.GA_AutoInteract_Range:Set(v) end
+})
 
+-- Prediction Time
+CreateLink(Options, "GA_AutoHide_PredictionTime", 0.5)
+GenAuto:Slider({ 
+    Title = "Prediction Time", 
+    Value = { Min = 0.1, Max = 1.5, Default = 0.5 }, -- <-- ИСПРАВЛЕНО
+    Step = 0.1, 
+    Callback = function(v) Options.GA_AutoHide_PredictionTime:Set(v) end 
+})
+
+-- Distance Multiplier
 CreateLink(Options, "GA_AutoHide_PredictionDistanceMultiplier", 1)
-GenAuto:Slider({ Title = "Distance Multiplier", Min = 0.8, Max = 1.5, Default = 1, Step = 0.1, Callback = function(v) Options.GA_AutoHide_PredictionDistanceMultiplier:Set(v) end })
+GenAuto:Slider({ 
+    Title = "Distance Multiplier", 
+    Value = { Min = 0.8, Max = 1.5, Default = 1 }, -- <-- ИСПРАВЛЕНО
+    Step = 0.1, 
+    Callback = function(v) Options.GA_AutoHide_PredictionDistanceMultiplier:Set(v) end 
+})
+
+-- Padlock Distance
+CreateLink(Options, "GA_AutoPadlockSolve_Distance", 25)
+GenAuto:Slider({ 
+    Title = "Padlock Distance", 
+    Value = { Min = 10, Max = 50, Default = 25 }, -- <-- ИСПРАВЛЕНО
+    Step = 1, 
+    Callback = function(v) Options.GA_AutoPadlockSolve_Distance:Set(v) end 
+})
 
 -- Minecart
 CreateLink(Toggles, "GA_MinecartInteract", false)
@@ -130,8 +170,14 @@ GenNotify:Toggle({ Title = "Enabled", Callback = function(v) Toggles.GN_Enabled:
 CreateLink(Toggles, "GN_NotificationSound", false)
 GenNotify:Toggle({ Title = "Play Sound", Callback = function(v) Toggles.GN_NotificationSound:Set(v) end })
 
+-- Sound Volume
 CreateLink(Options, "GN_NotificationSound_Volume", 2)
-GenNotify:Slider({ Title = "Sound Volume", Min = 1, Max = 10, Default = 2, Step = 0.1, Callback = function(v) Options.GN_NotificationSound_Volume:Set(v) end })
+GenNotify:Slider({ 
+    Title = "Sound Volume", 
+    Value = { Min = 1, Max = 10, Default = 2 }, 
+    Step = 0.1, 
+    Callback = function(v) Options.GN_NotificationSound_Volume:Set(v) end 
+})
 
 CreateLink(Toggles, "GN_AnchorCode", false)
 GenNotify:Toggle({ Title = "Anchor Code", Callback = function(v) Toggles.GN_AnchorCode:Set(v) end })
@@ -286,22 +332,52 @@ ESPSettings:Dropdown({
     Callback = function(v) Options.ESPS_Font:Set(v) end
 })
 
+-- Font Size
 CreateLink(Options, "ESPS_FontSize", 20)
-ESPSettings:Slider({ Title = "Font Size", Min=10, Max=32, Default=20, Step=1, Callback = function(v) Options.ESPS_FontSize:Set(v) end })
+ESPSettings:Slider({ 
+    Title = "Font Size", 
+    Value = { Min = 10, Max = 32, Default = 20 }, 
+    Step = 1, 
+    Callback = function(v) Options.ESPS_FontSize:Set(v) end 
+})
 
+-- Fill Transparency
 CreateLink(Options, "ESPS_FillTransparency", 0.7)
-ESPSettings:Slider({ Title = "Fill Transparency", Min=0, Max=1, Default=0.7, Step=0.1, Callback = function(v) Options.ESPS_FillTransparency:Set(v) end })
+ESPSettings:Slider({ 
+    Title = "Fill Transparency", 
+    Value = { Min = 0, Max = 1, Default = 0.7 }, 
+    Step = 0.1, 
+    Callback = function(v) Options.ESPS_FillTransparency:Set(v) end 
+})
 
+-- Outline Transparency
 CreateLink(Options, "ESPS_OutlineTransparency", 0.2)
-ESPSettings:Slider({ Title = "Outline Transparency", Min=0, Max=1, Default=0.2, Step=0.1, Callback = function(v) Options.ESPS_OutlineTransparency:Set(v) end })
+ESPSettings:Slider({ 
+    Title = "Outline Transparency", 
+    Value = { Min = 0, Max = 1, Default = 0.2 }, 
+    Step = 0.1, 
+    Callback = function(v) Options.ESPS_OutlineTransparency:Set(v) end 
+})
 
+-- Fade Time
 CreateLink(Options, "ESPS_FadeTime", 1)
-ESPSettings:Slider({ Title = "Fade Time", Min=0, Max=2, Default=1, Step=0.1, Callback = function(v) Options.ESPS_FadeTime:Set(v) end })
+ESPSettings:Slider({ 
+    Title = "Fade Time", 
+    Value = { Min = 0, Max = 2, Default = 1 }, 
+    Step = 0.1, 
+    Callback = function(v) Options.ESPS_FadeTime:Set(v) end 
+})
 
 -- // VISUALS TAB //
 local VisView = Tabs.Visuals:Section({ Title = "View" })
+-- Field of View
 CreateLink(Options, "VV_FieldOfView", 0)
-VisView:Slider({ Title = "Field of View", Min=0, Max=120, Default=0, Step=1, Callback = function(v) Options.VV_FieldOfView:Set(v) end })
+VisView:Slider({ 
+    Title = "Field of View", 
+    Value = { Min = 0, Max = 120, Default = 0 }, 
+    Step = 1, 
+    Callback = function(v) Options.VV_FieldOfView:Set(v) end 
+})
 
 CreateLink(Toggles, "VV_NoCamShake", false)
 VisView:Toggle({ Title = "No Camera Shake", Callback = function(v) Toggles.VV_NoCamShake:Set(v) end })
@@ -318,7 +394,12 @@ CreateLink(Toggles, "VV_ThirdpersonCamCollision", false)
 VisView:Toggle({ Title = "Wall Detect", Callback = function(v) Toggles.VV_ThirdpersonCamCollision:Set(v) end })
 
 CreateLink(Options, "VV_ThirdpersonDistance", 10)
-VisView:Slider({ Title = "TP Distance", Min=5, Max=30, Default=10, Step=1, Callback = function(v) Options.VV_ThirdpersonDistance:Set(v) end })
+VisView:Slider({ 
+    Title = "TP Distance", 
+    Value = { Min = 5, Max = 30, Default = 10 }, 
+    Step = 1, 
+    Callback = function(v) Options.VV_ThirdpersonDistance:Set(v) end 
+})
 CreateLink(Options, "VV_ThirdpersonOffset", 0)
 CreateLink(Options, "VV_ThirdpersonOffsetUp", 0)
 
@@ -365,8 +446,21 @@ CreateLink(Options, "MM_Walkspeed_S", 20)
 CreateLink(Options, "MM_Walkspeed_Boost", 0)
 
 MiscMove:Toggle({ Title = "Enable Speed Modifier", Callback = function(v) Toggles.MM_Walkspeed:Set(v) end })
-MiscMove:Slider({ Title = "Walkspeed", Min=10, Max=50, Default=20, Step=1, Callback = function(v) Options.MM_Walkspeed_S:Set(v) end })
-MiscMove:Slider({ Title = "Ladder Boost", Min=0, Max=50, Default=0, Step=1, Callback = function(v) Options.MM_Walkspeed_Boost:Set(v) end })
+CreateLink(Options, "MM_Walkspeed_S", 20)
+MiscMove:Slider({ 
+    Title = "Walkspeed", 
+    Value = { Min = 10, Max = 50, Default = 20 }, 
+    Step = 1, 
+    Callback = function(v) Options.MM_Walkspeed_S:Set(v) end 
+})
+-- Ladder Boost
+CreateLink(Options, "MM_Walkspeed_Boost", 0)
+MiscMove:Slider({ 
+    Title = "Ladder Boost", 
+    Value = { Min = 0, Max = 50, Default = 0 }, 
+    Step = 1, 
+    Callback = function(v) Options.MM_Walkspeed_Boost:Set(v) end 
+})
 
 CreateLink(Toggles, "MM_NoAcceleration", false)
 MiscMove:Toggle({ Title = "No Acceleration", Callback = function(v) Toggles.MM_NoAcceleration:Set(v) end })
