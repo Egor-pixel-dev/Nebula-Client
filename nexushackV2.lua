@@ -86,6 +86,39 @@ GenAuto:Slider({
     Callback = function(v) Options.GA_AutoInteract_Range:Set(v) end
 })
 
+-- Fast Interact (Instant Use)
+CreateLink(Toggles, "GA_InstantInteract", false)
+GenAuto:Toggle({
+    Title = "Instant Interact",
+    Flag = "GA_InstantInteract",
+    Callback = function(v) 
+        Toggles.GA_InstantInteract:Set(v)
+        
+        -- Логика быстрого взаимодействия
+        if v then
+            task.spawn(function()
+                local ProximityPromptService = game:GetService("ProximityPromptService")
+                while Toggles.GA_InstantInteract.Value and not Library.Unloaded do
+                    local prompt = ProximityPromptService.PromptButtonHoldBegan:Wait()
+                    if Toggles.GA_InstantInteract.Value then
+                        fireproximityprompt(prompt)
+                    end
+                end
+            end)
+        end
+    end
+})
+
+-- Loot Aura (Auto Open Drawers & Gold)
+CreateLink(Toggles, "GA_LootAura", false)
+GenAuto:Toggle({
+    Title = "Loot Aura (Distance)",
+    Flag = "GA_LootAura",
+    Callback = function(v) 
+        Toggles.GA_LootAura:Set(v)
+    end
+})
+
 -- Auto Candy
 CreateLink(Toggles, "GA_EatCandies", false)
 CreateLink(Options, "GA_EatCandies_K", "V")
@@ -1166,10 +1199,41 @@ task.spawn(function()
                 end
 
                 -- Другие тяжелые проверки можно перенести сюда
+				 -- НОВЫЙ LOOT AURA (Вставь сюда)
+                if Toggles.GA_LootAura.Value then
+                    local root = LocalPlayer.Character.HumanoidRootPart
+                    local CurrentRoom = Rooms[LocalPlayer:GetAttribute("CurrentRoom")]
+                    if CurrentRoom then
+                        for _, v in pairs(CurrentRoom:GetDescendants()) do
+                            if v:IsA("Model") then
+                                local prompt
+                                if v.Name == "DrawerContainer" then
+                                    local knob = v:FindFirstChild("Knobs")
+                                    if knob then prompt = knob:FindFirstChild("ActivateEventPrompt") end
+                                elseif v.Name == "GoldPile" then
+                                    prompt = v:FindFirstChild("LootPrompt")
+                                elseif v.Name:sub(1,8) == "ChestBox" then
+                                    prompt = v:FindFirstChild("ActivateEventPrompt")
+                                elseif v.Name == "RolltopContainer" then
+                                    prompt = v:FindFirstChild("ActivateEventPrompt")
+                                end
+
+                                if prompt then
+                                    local interact = prompt:GetAttribute("Interactions")
+                                    if not interact and (root.Position - prompt.Parent.Position).Magnitude <= 14 then -- Дистанция 14
+                                        fireproximityprompt(prompt)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
             end
         end)
     end
 end)
+
+
 
 local Connections = {
     game:GetService("RunService").RenderStepped:Connect(function()
