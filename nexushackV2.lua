@@ -2070,11 +2070,11 @@ Toggles.MA_SilentGloombat:OnChanged(function()
 end)
 
 task.spawn(function()
-    while task.wait(0.3) and not Library.Unloaded do
+    while task.wait(0.17) and not Library.Unloaded do
         if Toggles.EB_SpeedBypass.Value then
             if ClonedCollision then
                 ClonedCollision.Massless = false
-                task.wait(0.3)
+                task.wait(0.17)
                 if LocalPlayer.Character.HumanoidRootPart.Anchored then
                     ClonedCollision.Massless = true
                     task.wait(1)
