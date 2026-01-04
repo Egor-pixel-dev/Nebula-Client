@@ -44,178 +44,6 @@ local Detection = game:GetService("TextChatService").MessageReceived:Connect(fun
 end)
 -- UI vvv
 
--- [[ ENGLISH MULTI-LOOT LOGIC START ]] --
-
--- Loot Table (English)
-local LootTable = {
-    ["Key"] = {Model = "KeyObtain", Tool = "Key"},
-    ["Lockpick"] = {Model = "Lockpick", Tool = "Lockpick"},
-    ["Lighter"] = {Model = "Lighter", Tool = "Lighter"},
-    ["Flashlight"] = {Model = "Flashlight", Tool = "Flashlight"},
-    ["Vitamins"] = {Model = "Vitamins", Tool = "Vitamins"},
-    ["Bandage"] = {Model = "Bandage", Tool = "Bandage"},
-    ["Battery"] = {Model = "Battery", Tool = nil},
-    ["Crucifix"] = {Model = "Crucifix", Tool = "Crucifix"},
-    ["Skeleton Key"] = {Model = "SkeletonKey", Tool = "SkeletonKey"},
-    ["Shears"] = {Model = "Shears", Tool = "Shears"},
-    ["Gold"] = {Model = "GoldPile", Tool = nil},
-    ["Glowsticks"] = {Model = "Glowsticks", Tool = "Glowsticks"},
-    ["Bandage Pack"] = {Model = "BandagePack", Tool = "BandagePack"},
-    ["Battery Pack"] = {Model = "BatteryPack", Tool = "BatteryPack"},
-    
-    -- Special Items
-    ["Library Paper"] = {Model = "LibraryHintPaper", Tool = "LibraryHintPaper"},
-    ["Library Book"] = {Model = "LiveHintBook", Tool = nil},
-    ["Breaker Pole"] = {Model = "LiveBreakerPolePickup", Tool = "BreakerPole"},
-    ["Fuse"] = {Model = "FuseObtain", Tool = "Fuse"},
-    ["Water Pump"] = {Model = "WaterPump", Tool = nil}, -- For Rooms/Backdoor
-}
-
-local ActionRunning = false
-
--- Helper: Check if player has item
-local function HasItem(ToolName)
-    if not ToolName then return false end 
-    local LP = game:GetService("Players").LocalPlayer
-    if LP.Character and LP.Character:FindFirstChild(ToolName) then return true end
-    if LP.Backpack:FindFirstChild(ToolName) then return true end
-    return false
-end
-
--- Main Loot Function
-local function GetItemLogic(SelectionName, AutoMode)
-    if ActionRunning and not AutoMode then 
-        Library:Notify("Wait, action in progress!") 
-        return 
-    end
-    
-    local Data = LootTable[SelectionName]
-    if not Data then return end
-
-    local ModelName = Data.Model
-    local ToolName = Data.Tool
-
-    if ToolName and HasItem(ToolName) and not AutoMode then
-        Library:Notify("You already have: " .. SelectionName)
-        return
-    end
-
-    local LP = game:GetService("Players").LocalPlayer
-    local CurrentRooms = game:GetService("Workspace").CurrentRooms
-    local RoomIdx = LP:GetAttribute("CurrentRoom")
-    local Room = CurrentRooms:FindFirstChild(tostring(RoomIdx))
-    
-    if not Room then return end
-
-    local Target = nil
-    local Prompt = nil
-
-    -- Scan room deeply
-    for _, v in pairs(Room:GetDescendants()) do
-        if v.Name == ModelName then
-            local p = v:FindFirstChildWhichIsA("ProximityPrompt", true)
-            if p and p.Enabled then
-                Target = v
-                Prompt = p
-                break 
-            end
-        end
-    end
-
-    if Target and Prompt then
-        ActionRunning = true
-        if not AutoMode then Library:Notify("Taking: " .. SelectionName) end
-        
-        local Start = tick()
-        while (tick() - Start) < 4 do
-            if ToolName and HasItem(ToolName) then break end
-            if not Target or not Target.Parent or not Prompt.Enabled then break end
-
-            if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-                LP.Character:PivotTo(Target:GetPivot())
-                fireproximityprompt(Prompt)
-            end
-            task.wait(0.05)
-        end
-        ActionRunning = false
-    else
-        if not AutoMode then Library:Notify("Not found: " .. SelectionName) end
-    end
-end
-
--- AUTO BREAKER BOX LOGIC (ROOM 100)
-local function SolveBreakerBox()
-    local LP = game:GetService("Players").LocalPlayer
-    local CurrentRooms = game:GetService("Workspace").CurrentRooms
-    
-    -- Find the Breaker Box (usually in Room 100 or Mines)
-    local BreakerSwitches = {}
-    
-    for _, v in pairs(CurrentRooms:GetDescendants()) do
-        if v.Name == "BreakerSwitch" and v:IsA("Model") then
-            table.insert(BreakerSwitches, v)
-        end
-    end
-
-    if #BreakerSwitches > 0 then
-        for _, Switch in pairs(BreakerSwitches) do
-            -- Logic: Check if the switch is correct (Game usually sets an attribute or we brute force)
-            -- In standard Rooms, switches have a "Correct" attribute usually set by the game
-            local Correct = Switch:GetAttribute("Correct") -- Sometimes works
-            local Enabled = Switch:GetAttribute("Enabled") or (Switch:FindFirstChild("On") and Switch.On.Transparency == 0)
-            
-            -- Simple logic: Just turn everything ON if we can't determine correctness, 
-            -- OR if we know it's correct and it's OFF -> Turn ON.
-            -- NOTE: A perfect solver requires reading the UI, but simple interactor works often.
-            
-            local Prompt = Switch:FindFirstChildWhichIsA("ProximityPrompt", true)
-            if Prompt and Prompt.Enabled then
-                -- Interact with it
-                if LP.Character then
-                    LP.Character:PivotTo(Switch:GetPivot() + Vector3.new(0, 0, 2))
-                    fireproximityprompt(Prompt)
-                    task.wait(0.1)
-                end
-            end
-        end
-    end
-end
-
--- INFINITE LOOP
-local function AutoItemLoop()
-    while task.wait(0.2) do
-        -- 1. Multi-Select Loot
-        if Toggles.AutoItemToggle.Value then
-            -- Iterate through ALL selected items
-            for ItemName, IsSelected in pairs(Options.ItemSelect.Value) do
-                if IsSelected then
-                    GetItemLogic(ItemName, true)
-                    task.wait(0.05) -- Small delay between items
-                end
-            end
-        end
-        
-        -- 2. Library
-        if Toggles.AutoLibToggle.Value then
-            GetItemLogic("Library Paper", true)
-            GetItemLogic("Library Book", true)
-        end
-
-        -- 3. Breaker Poles (Mines)
-        if Toggles.AutoBreakerToggle.Value then
-            GetItemLogic("Breaker Pole", true)
-        end
-        
-        -- 4. Auto Breaker Box (Room 100 Puzzle)
-        if Toggles.AutoSolveBreaker.Value then
-            SolveBreakerBox()
-        end
-    end
-end
-task.spawn(AutoItemLoop)
-
--- [[ ENGLISH MULTI-LOOT LOGIC END ]] --
-
 local Window = Library:CreateWindow({ Title = " NexusHack ", Center = true, AutoShow = true, TabPadding = 3, MenuFadeTime = 0.15 })
 local Tabs = { General = Window:AddTab("General"), Exploit = Window:AddTab("Exploits"), ESP = Window:AddTab("ESP"), Visuals = Window:AddTab("Visuals"), Misc = Window:AddTab("Miscellaneous"), Config = Window:AddTab("Config") }
 
@@ -499,6 +327,179 @@ MiscellaneousOther:AddButton("Revive", function()
 end)
 
 -- Variables vvv
+
+-- [[ ENGLISH MULTI-LOOT LOGIC START ]] --
+
+-- Loot Table (English)
+local LootTable = {
+    ["Key"] = {Model = "KeyObtain", Tool = "Key"},
+    ["Lockpick"] = {Model = "Lockpick", Tool = "Lockpick"},
+    ["Lighter"] = {Model = "Lighter", Tool = "Lighter"},
+    ["Flashlight"] = {Model = "Flashlight", Tool = "Flashlight"},
+    ["Vitamins"] = {Model = "Vitamins", Tool = "Vitamins"},
+    ["Bandage"] = {Model = "Bandage", Tool = "Bandage"},
+    ["Battery"] = {Model = "Battery", Tool = nil},
+    ["Crucifix"] = {Model = "Crucifix", Tool = "Crucifix"},
+    ["Skeleton Key"] = {Model = "SkeletonKey", Tool = "SkeletonKey"},
+    ["Shears"] = {Model = "Shears", Tool = "Shears"},
+    ["Gold"] = {Model = "GoldPile", Tool = nil},
+    ["Glowsticks"] = {Model = "Glowsticks", Tool = "Glowsticks"},
+    ["Bandage Pack"] = {Model = "BandagePack", Tool = "BandagePack"},
+    ["Battery Pack"] = {Model = "BatteryPack", Tool = "BatteryPack"},
+    
+    -- Special Items
+    ["Library Paper"] = {Model = "LibraryHintPaper", Tool = "LibraryHintPaper"},
+    ["Library Book"] = {Model = "LiveHintBook", Tool = nil},
+    ["Breaker Pole"] = {Model = "LiveBreakerPolePickup", Tool = "BreakerPole"},
+    ["Fuse"] = {Model = "FuseObtain", Tool = "Fuse"},
+    ["Water Pump"] = {Model = "WaterPump", Tool = nil}, -- For Rooms/Backdoor
+}
+
+local ActionRunning = false
+
+-- Helper: Check if player has item
+local function HasItem(ToolName)
+    if not ToolName then return false end 
+    local LP = game:GetService("Players").LocalPlayer
+    if LP.Character and LP.Character:FindFirstChild(ToolName) then return true end
+    if LP.Backpack:FindFirstChild(ToolName) then return true end
+    return false
+end
+
+-- Main Loot Function
+local function GetItemLogic(SelectionName, AutoMode)
+    if ActionRunning and not AutoMode then 
+        Library:Notify("Wait, action in progress!") 
+        return 
+    end
+    
+    local Data = LootTable[SelectionName]
+    if not Data then return end
+
+    local ModelName = Data.Model
+    local ToolName = Data.Tool
+
+    if ToolName and HasItem(ToolName) and not AutoMode then
+        Library:Notify("You already have: " .. SelectionName)
+        return
+    end
+
+    local LP = game:GetService("Players").LocalPlayer
+    local CurrentRooms = game:GetService("Workspace").CurrentRooms
+    local RoomIdx = LP:GetAttribute("CurrentRoom")
+    local Room = CurrentRooms:FindFirstChild(tostring(RoomIdx))
+    
+    if not Room then return end
+
+    local Target = nil
+    local Prompt = nil
+
+    -- Scan room deeply
+    for _, v in pairs(Room:GetDescendants()) do
+        if v.Name == ModelName then
+            local p = v:FindFirstChildWhichIsA("ProximityPrompt", true)
+            if p and p.Enabled then
+                Target = v
+                Prompt = p
+                break 
+            end
+        end
+    end
+
+    if Target and Prompt then
+        ActionRunning = true
+        if not AutoMode then Library:Notify("Taking: " .. SelectionName) end
+        
+        local Start = tick()
+        while (tick() - Start) < 4 do
+            if ToolName and HasItem(ToolName) then break end
+            if not Target or not Target.Parent or not Prompt.Enabled then break end
+
+            if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+                LP.Character:PivotTo(Target:GetPivot())
+                fireproximityprompt(Prompt)
+            end
+            task.wait(0.05)
+        end
+        ActionRunning = false
+    else
+        if not AutoMode then Library:Notify("Not found: " .. SelectionName) end
+    end
+end
+
+-- AUTO BREAKER BOX LOGIC (ROOM 100)
+local function SolveBreakerBox()
+    local LP = game:GetService("Players").LocalPlayer
+    local CurrentRooms = game:GetService("Workspace").CurrentRooms
+    
+    -- Find the Breaker Box (usually in Room 100 or Mines)
+    local BreakerSwitches = {}
+    
+    for _, v in pairs(CurrentRooms:GetDescendants()) do
+        if v.Name == "BreakerSwitch" and v:IsA("Model") then
+            table.insert(BreakerSwitches, v)
+        end
+    end
+
+    if #BreakerSwitches > 0 then
+        for _, Switch in pairs(BreakerSwitches) do
+            -- Logic: Check if the switch is correct (Game usually sets an attribute or we brute force)
+            -- In standard Rooms, switches have a "Correct" attribute usually set by the game
+            local Correct = Switch:GetAttribute("Correct") -- Sometimes works
+            local Enabled = Switch:GetAttribute("Enabled") or (Switch:FindFirstChild("On") and Switch.On.Transparency == 0)
+            
+            -- Simple logic: Just turn everything ON if we can't determine correctness, 
+            -- OR if we know it's correct and it's OFF -> Turn ON.
+            -- NOTE: A perfect solver requires reading the UI, but simple interactor works often.
+            
+            local Prompt = Switch:FindFirstChildWhichIsA("ProximityPrompt", true)
+            if Prompt and Prompt.Enabled then
+                -- Interact with it
+                if LP.Character then
+                    LP.Character:PivotTo(Switch:GetPivot() + Vector3.new(0, 0, 2))
+                    fireproximityprompt(Prompt)
+                    task.wait(0.1)
+                end
+            end
+        end
+    end
+end
+
+-- INFINITE LOOP
+local function AutoItemLoop()
+    while task.wait(0.2) do
+        -- 1. Multi-Select Loot
+        if Toggles.AutoItemToggle.Value then
+            -- Iterate through ALL selected items
+            for ItemName, IsSelected in pairs(Options.ItemSelect.Value) do
+                if IsSelected then
+                    GetItemLogic(ItemName, true)
+                    task.wait(0.05) -- Small delay between items
+                end
+            end
+        end
+        
+        -- 2. Library
+        if Toggles.AutoLibToggle.Value then
+            GetItemLogic("Library Paper", true)
+            GetItemLogic("Library Book", true)
+        end
+
+        -- 3. Breaker Poles (Mines)
+        if Toggles.AutoBreakerToggle.Value then
+            GetItemLogic("Breaker Pole", true)
+        end
+        
+        -- 4. Auto Breaker Box (Room 100 Puzzle)
+        if Toggles.AutoSolveBreaker.Value then
+            SolveBreakerBox()
+        end
+    end
+end
+task.spawn(AutoItemLoop)
+
+-- [[ ENGLISH MULTI-LOOT LOGIC END ]] --
+
 
 local A90Hook
 local ScreechHook
