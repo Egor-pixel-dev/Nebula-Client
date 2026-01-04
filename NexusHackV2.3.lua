@@ -15,7 +15,7 @@ ErrorMessageOut = game:GetService("LogService").MessageOut:Connect(function(Mess
         ErrorMessageOut:Disconnect()
 
         setclipboard("Executor: " .. identifyexecutor() .. "\n\n" .. tostring(Message))
-        Library:Notify(" Lolhax has errored while loading and will now unload. The error has been copied to your clipboard, please report this on the LX discord server! ", 4.5)
+        Library:Notify(" NexusHack has errored while loading and will now unload. The error has been copied to your clipboard, please report this on the NH discord server! ", 4.5)
 
         task.delay(5, function()
             Library:Unload()
@@ -44,115 +44,137 @@ local Detection = game:GetService("TextChatService").MessageReceived:Connect(fun
 end)
 -- UI vvv
 
--- [[ AUTO LOOT LOGIC START ]] --
+-- [[ ADVANCED LOOT LOGIC START ]] --
 
-local isActionRunning = false
+-- Обновленная таблица (Добавил Листок, Книги и Рубильники сюда)
+local LootTable = {
+    -- Обычные предметы
+    ["Key (Ключ)"] = {Model = "KeyObtain", Tool = "Key"},
+    ["Lockpick (Отмычка)"] = {Model = "Lockpick", Tool = "Lockpick"},
+    ["Lighter (Зажигалка)"] = {Model = "Lighter", Tool = "Lighter"},
+    ["Flashlight (Фонарик)"] = {Model = "Flashlight", Tool = "Flashlight"},
+    ["Vitamins (Витамины)"] = {Model = "Vitamins", Tool = "Vitamins"},
+    ["Bandage (Бинт)"] = {Model = "Bandage", Tool = "Bandage"},
+    ["Battery (Батарейка)"] = {Model = "Battery", Tool = nil}, -- Tool = nil значит "бери пока не исчезнет"
+    ["Crucifix (Крест)"] = {Model = "Crucifix", Tool = "Crucifix"},
+    ["Skeleton Key (Скелетный)"] = {Model = "SkeletonKey", Tool = "SkeletonKey"},
+    ["Shears (Ножницы)"] = {Model = "Shears", Tool = "Shears"},
+    ["Gold (Золото)"] = {Model = "GoldPile", Tool = nil},
 
--- Функция проверки наличия предмета
-local function HasItem(ItemName)
+    -- Спец. предметы (Для авто-фарма)
+    ["Library Paper"] = {Model = "LibraryHintPaper", Tool = "LibraryHintPaper"}, -- Листок
+    ["Library Book"] = {Model = "LiveHintBook", Tool = nil}, -- Книги (просто исчезают)
+    ["Breaker Pole"] = {Model = "LiveBreakerPolePickup", Tool = "BreakerPole"}, -- Рубильники
+}
+
+local ActionRunning = false
+
+-- Проверка наличия предмета
+local function HasItem(ToolName)
+    if not ToolName then return false end 
     local LP = game:GetService("Players").LocalPlayer
-    -- 1. Проверяем руки
-    if LP.Character and LP.Character:FindFirstChild(ItemName) then
-        return true
-    end
-    -- 2. Проверяем рюкзак
-    if LP.Backpack:FindFirstChild(ItemName) then
-        return true
-    end
+    if LP.Character and LP.Character:FindFirstChild(ToolName) then return true end
+    if LP.Backpack:FindFirstChild(ToolName) then return true end
     return false
 end
 
--- Основная функция взятия
-local function ForceGetItem(WorldObjectName, ToolName, DisplayName)
-    if isActionRunning then 
-        Library:Notify("Подожди, действие выполняется!")
+-- Основная логика (Универсальная)
+local function GetItemLogic(SelectionName, AutoMode)
+    -- Если действие уже идет и это не авто-режим, то выходим
+    if ActionRunning and not AutoMode then 
+        Library:Notify("Подожди, действие выполняется!") 
         return 
     end
     
+    local Data = LootTable[SelectionName]
+    if not Data then return end
+
+    local ModelName = Data.Model
+    local ToolName = Data.Tool
+
+    -- Если у предмета есть Tool (например Ключ) и он уже у нас - не берем
+    if ToolName and HasItem(ToolName) and not AutoMode then
+        Library:Notify("У тебя уже есть " .. SelectionName)
+        return
+    end
+
     local LP = game:GetService("Players").LocalPlayer
-    
-    -- Проверка наличия
-    if HasItem(ToolName) then
-        Library:Notify("У тебя уже есть " .. DisplayName .. "!")
-        return
-    end
-
-    -- Определяем комнату
     local CurrentRooms = game:GetService("Workspace").CurrentRooms
-    local currentRoomIndex = LP:GetAttribute("CurrentRoom")
-    local RoomModel = CurrentRooms:FindFirstChild(tostring(currentRoomIndex))
+    local RoomIdx = LP:GetAttribute("CurrentRoom")
+    local Room = CurrentRooms:FindFirstChild(tostring(RoomIdx))
     
-    if not RoomModel then
-        Library:Notify("Не могу найти текущую комнату.")
-        return
-    end
+    if not Room then return end
 
-    -- Ищем объект
-    local TargetItem = nil
-    local TargetPrompt = nil
+    -- ИЩЕМ ПРЕДМЕТ (Включая ящики и шкафы)
+    local Target = nil
+    local Prompt = nil
 
-    for _, obj in pairs(RoomModel:GetDescendants()) do
-        if obj.Name == WorldObjectName then
-            local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
-            if prompt and prompt.Enabled then
-                TargetItem = obj
-                TargetPrompt = prompt
-                break 
+    for _, v in pairs(Room:GetDescendants()) do
+        if v.Name == ModelName then
+            local p = v:FindFirstChildWhichIsA("ProximityPrompt", true)
+            if p and p.Enabled then
+                Target = v
+                Prompt = p
+                break -- Берем первый попавшийся
             end
         end
     end
 
-    if not TargetItem then
-        Library:Notify("В комнате нет: " .. DisplayName)
-        return
+    -- ЕСЛИ НАШЛИ
+    if Target and Prompt then
+        ActionRunning = true
+        if not AutoMode then Library:Notify("Беру: " .. SelectionName) end
+        
+        local Start = tick()
+        -- Пытаемся взять (макс 4 секунды на предмет)
+        while (tick() - Start) < 4 do
+            -- Условия успеха:
+            if ToolName and HasItem(ToolName) then break end -- Появился в инвентаре
+            if not Target or not Target.Parent or not Prompt.Enabled then break end -- Исчез с карты
+
+            if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+                -- Телепорт прямо в предмет
+                LP.Character:PivotTo(Target:GetPivot())
+                fireproximityprompt(Prompt)
+            end
+            task.wait(0.05) -- Быстрый спам
+        end
+        ActionRunning = false
+    else
+        if not AutoMode then Library:Notify("Не найдено: " .. SelectionName) end
     end
+end
 
-    -- СТАРТ ЦИКЛА
-    isActionRunning = true
-    Library:Notify("Пытаюсь взять: " .. DisplayName)
-
-    local StartTime = tick()
-    local TimeLimit = 8 -- секунд
-    local Success = false
-
-    while (tick() - StartTime) < TimeLimit do
-        -- Условие выхода 1: Взяли предмет
-        if HasItem(ToolName) then
-            Success = true
-            break 
+-- БЕСКОНЕЧНЫЙ ЦИКЛ ПРОВЕРКИ
+local function AutoItemLoop()
+    while task.wait(0.1) do
+        -- 1. Обычный авто-пик (выбранное в дропдауне)
+        if Toggles.AutoItemToggle.Value then
+            local Selected = Options.ItemSelect.Value
+            if Selected then
+                GetItemLogic(Selected, true)
+            end
         end
         
-        -- Условие выхода 2: Объект исчез (для книг)
-        if not TargetItem or not TargetItem.Parent or not TargetPrompt or not TargetPrompt.Enabled then
-             if ToolName == "Book" then 
-                 Success = true
-                 break
-             end
+        -- 2. Авто Библиотека (Листок + Книги)
+        if Toggles.AutoLibToggle.Value then
+            -- Сначала пробуем взять листок (если он есть)
+            GetItemLogic("Library Paper", true)
+            
+            -- Потом пробуем взять книгу (одну за раз)
+            -- Так как это цикл, он возьмет одну, цикл повторится, он возьмет следующую
+            GetItemLogic("Library Book", true)
         end
 
-        -- Телепорт и нажатие
-        if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and TargetItem and TargetItem.Parent then
-            LP.Character:PivotTo(TargetItem:GetPivot())
-            fireproximityprompt(TargetPrompt)
-        end
-
-        task.wait(0.05)
-    end
-
-    isActionRunning = false
-
-    if Success then
-        Library:Notify("УСПЕХ: " .. DisplayName .. " получен!")
-    else
-        -- Финальная проверка
-        if HasItem(ToolName) then
-             Library:Notify("УСПЕХ: " .. DisplayName .. " получен!")
-        else
-             Library:Notify("ОШИБКА: Не удалось взять " .. DisplayName)
+        -- 3. Авто Рубильники (Шахта/100)
+        if Toggles.AutoBreakerToggle.Value then
+            GetItemLogic("Breaker Pole", true)
         end
     end
 end
--- [[ AUTO LOOT LOGIC END ]] --
+task.spawn(AutoItemLoop)
+
+-- [[ ADVANCED LOOT LOGIC END ]] --
 
 local Window = Library:CreateWindow({ Title = " NexusHack ", Center = true, AutoShow = true, TabPadding = 3, MenuFadeTime = 0.15 })
 local Tabs = { General = Window:AddTab("General"), Exploit = Window:AddTab("Exploits"), ESP = Window:AddTab("ESP"), Visuals = Window:AddTab("Visuals"), Misc = Window:AddTab("Miscellaneous"), Config = Window:AddTab("Config") }
@@ -388,30 +410,79 @@ MiscAudio:AddToggle("MA_SilentGloombat", { Text = "Silent Gloombats", Default = 
 --MiscAudio:AddToggle("MA_NoFigureFootsteps", { Text = "Silent Figure Steps", Default = false, Tooltip = "Removes figure footsteps." })
 
 local MiscAuto = Tabs.Misc:AddLeftGroupbox("Auto")
--- Кнопки для Auto Loot
-MiscAuto:AddButton("Auto Key", function()
-    ForceGetItem("KeyObtain", "Key", "Ключ")
+-- 1. Выпадающий список предметов
+MiscAuto:AddDropdown("ItemSelect", {
+    Values = {
+        "Key (Ключ)", "Lockpick (Отмычка)", "Lighter (Зажигалка)", 
+        "Flashlight (Фонарик)", "Vitamins (Витамины)", "Bandage (Бинт)", 
+        "Battery (Батарейка)", "Crucifix (Крест)", "Skeleton Key (Скелетный)",
+        "Shears (Ножницы)", "Gold (Золото)"
+    },
+    Default = 1,
+    Multi = false,
+    Text = "Выбери предмет",
+    Tooltip = "Что искать автоматически или кнопкой",
+})
+
+MiscAuto:AddDivider()
+
+-- 2. Кнопка и Тогл для выбранного предмета
+MiscAuto:AddButton("Взять выбранное (1 раз)", function()
+    GetItemLogic(Options.ItemSelect.Value, false)
 end)
 
-MiscAuto:AddButton("Auto Lockpick", function()
-    ForceGetItem("Lockpick", "Lockpick", "Отмычку")
-end)
+MiscAuto:AddToggle("AutoItemToggle", {
+    Text = "Auto Pick Selected",
+    Default = false,
+    Tooltip = "Автоматически проверяет каждую комнату и берет выбранный предмет.",
+})
 
-MiscAuto:AddButton("Auto Lighter", function()
-    ForceGetItem("Lighter", "Lighter", "Зажигалку")
-end)
+MiscAuto:AddDivider()
 
-MiscAuto:AddButton("Auto Flashlight", function()
-    ForceGetItem("Flashlight", "Flashlight", "Фонарик")
-end)
-
-MiscAuto:AddButton("Auto Book (Library)", function()
+-- 3. Библиотека
+MiscAuto:AddButton("Собрать Библиотеку (1 раз)", function()
+    -- Вызываем твою функцию для книг (убедись, что она объявлена выше)
+    ForceGetItem("LibraryHintPaper", "LibraryHintPaper", "Листок")
     ForceGetItem("LiveHintBook", "Book", "Книгу")
 end)
 
-MiscAuto:AddButton("Auto Breaker (Mines)", function()
+MiscAuto:AddToggle("AutoLibToggle", {
+    Text = "Auto Library",
+    Default = false,
+    Tooltip = "Будет пылесосить книги, пока включено.",
+    Callback = function(Value)
+        -- Логику можно вставить в общий цикл выше или оставить отдельной
+        if Value then
+            task.spawn(function()
+                while Toggles.AutoLibToggle.Value do
+                    ForceGetItem("LiveHintBook", "Book", "Книгу")
+                    task.wait(1)
+                end
+            end)
+        end
+    end,
+})
+
+-- 4. Шахты (Breaker)
+MiscAuto:AddButton("Собрать Рубильники (1 раз)", function()
     ForceGetItem("LiveBreakerPolePickup", "BreakerPole", "Рубильник")
 end)
+
+MiscAuto:AddToggle("AutoBreakerToggle", {
+    Text = "Auto Breaker (Mines)",
+    Default = false,
+    Tooltip = "Для 100 комнаты и Шахт.",
+    Callback = function(Value)
+        if Value then
+            task.spawn(function()
+                while Toggles.AutoBreakerToggle.Value do
+                    ForceGetItem("LiveBreakerPolePickup", "BreakerPole", "Рубильник")
+                    task.wait(1)
+                end
+            end)
+        end
+    end,
+})
 
 local MiscellaneousOther = Tabs.Misc:AddRightGroupbox("Other")
 MiscellaneousOther:AddToggle("MO_antirobloxvoid", { Text = "No Roblox Void", Default = false, Tooltip = "Removes the ROBLOX fallen parts destroy height." })
