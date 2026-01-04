@@ -44,7 +44,117 @@ local Detection = game:GetService("TextChatService").MessageReceived:Connect(fun
 end)
 -- UI vvv
 
-local Window = Library:CreateWindow({ Title = " NexusHack ┃ ".. LocalPlayer.Name, Center = true, AutoShow = true, TabPadding = 3, MenuFadeTime = 0.15 })
+-- [[ AUTO LOOT LOGIC START ]] --
+
+local isActionRunning = false
+
+-- Функция проверки наличия предмета
+local function HasItem(ItemName)
+    local LP = game:GetService("Players").LocalPlayer
+    -- 1. Проверяем руки
+    if LP.Character and LP.Character:FindFirstChild(ItemName) then
+        return true
+    end
+    -- 2. Проверяем рюкзак
+    if LP.Backpack:FindFirstChild(ItemName) then
+        return true
+    end
+    return false
+end
+
+-- Основная функция взятия
+local function ForceGetItem(WorldObjectName, ToolName, DisplayName)
+    if isActionRunning then 
+        Library:Notify("Подожди, действие выполняется!")
+        return 
+    end
+    
+    local LP = game:GetService("Players").LocalPlayer
+    
+    -- Проверка наличия
+    if HasItem(ToolName) then
+        Library:Notify("У тебя уже есть " .. DisplayName .. "!")
+        return
+    end
+
+    -- Определяем комнату
+    local CurrentRooms = game:GetService("Workspace").CurrentRooms
+    local currentRoomIndex = LP:GetAttribute("CurrentRoom")
+    local RoomModel = CurrentRooms:FindFirstChild(tostring(currentRoomIndex))
+    
+    if not RoomModel then
+        Library:Notify("Не могу найти текущую комнату.")
+        return
+    end
+
+    -- Ищем объект
+    local TargetItem = nil
+    local TargetPrompt = nil
+
+    for _, obj in pairs(RoomModel:GetDescendants()) do
+        if obj.Name == WorldObjectName then
+            local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
+            if prompt and prompt.Enabled then
+                TargetItem = obj
+                TargetPrompt = prompt
+                break 
+            end
+        end
+    end
+
+    if not TargetItem then
+        Library:Notify("В комнате нет: " .. DisplayName)
+        return
+    end
+
+    -- СТАРТ ЦИКЛА
+    isActionRunning = true
+    Library:Notify("Пытаюсь взять: " .. DisplayName)
+
+    local StartTime = tick()
+    local TimeLimit = 8 -- секунд
+    local Success = false
+
+    while (tick() - StartTime) < TimeLimit do
+        -- Условие выхода 1: Взяли предмет
+        if HasItem(ToolName) then
+            Success = true
+            break 
+        end
+        
+        -- Условие выхода 2: Объект исчез (для книг)
+        if not TargetItem or not TargetItem.Parent or not TargetPrompt or not TargetPrompt.Enabled then
+             if ToolName == "Book" then 
+                 Success = true
+                 break
+             end
+        end
+
+        -- Телепорт и нажатие
+        if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and TargetItem and TargetItem.Parent then
+            LP.Character:PivotTo(TargetItem:GetPivot())
+            fireproximityprompt(TargetPrompt)
+        end
+
+        task.wait(0.05)
+    end
+
+    isActionRunning = false
+
+    if Success then
+        Library:Notify("УСПЕХ: " .. DisplayName .. " получен!")
+    else
+        -- Финальная проверка
+        if HasItem(ToolName) then
+             Library:Notify("УСПЕХ: " .. DisplayName .. " получен!")
+        else
+             Library:Notify("ОШИБКА: Не удалось взять " .. DisplayName)
+        end
+    end
+end
+-- [[ AUTO LOOT LOGIC END ]] --
+
+local Window = Library:CreateWindow({ Title = " NexusHack ", Center = true, AutoShow = true, TabPadding = 3, MenuFadeTime = 0.15 })
 local Tabs = { General = Window:AddTab("General"), Exploit = Window:AddTab("Exploits"), ESP = Window:AddTab("ESP"), Visuals = Window:AddTab("Visuals"), Misc = Window:AddTab("Miscellaneous"), Config = Window:AddTab("Config") }
 
 local GeneralAutomation = Tabs.General:AddLeftGroupbox("Automation")
@@ -278,8 +388,29 @@ MiscAudio:AddToggle("MA_SilentGloombat", { Text = "Silent Gloombats", Default = 
 --MiscAudio:AddToggle("MA_NoFigureFootsteps", { Text = "Silent Figure Steps", Default = false, Tooltip = "Removes figure footsteps." })
 
 local MiscAuto = Tabs.Misc:AddLeftGroupbox("Auto")
+-- Кнопки для Auto Loot
 MiscAuto:AddButton("Auto Key", function()
     ForceGetItem("KeyObtain", "Key", "Ключ")
+end)
+
+MiscAuto:AddButton("Auto Lockpick", function()
+    ForceGetItem("Lockpick", "Lockpick", "Отмычку")
+end)
+
+MiscAuto:AddButton("Auto Lighter", function()
+    ForceGetItem("Lighter", "Lighter", "Зажигалку")
+end)
+
+MiscAuto:AddButton("Auto Flashlight", function()
+    ForceGetItem("Flashlight", "Flashlight", "Фонарик")
+end)
+
+MiscAuto:AddButton("Auto Book (Library)", function()
+    ForceGetItem("LiveHintBook", "Book", "Книгу")
+end)
+
+MiscAuto:AddButton("Auto Breaker (Mines)", function()
+    ForceGetItem("LiveBreakerPolePickup", "BreakerPole", "Рубильник")
 end)
 
 local MiscellaneousOther = Tabs.Misc:AddRightGroupbox("Other")
