@@ -107,7 +107,7 @@ if game.ReplicatedStorage.GameData.Floor.Value == "Mines" then
             end)
         end,
         DoubleClick = false,
-        Tooltip = "Disables uhh rush/ambush on floor2",
+        Tooltip = "Disables rush/ambush on floor2",
     })
 end
 ExploitTroll:AddToggle("Spamtoolz", { Text = "Spam others Tools", Default = false, Tooltip = "Will basically use up the other person tools by spamming!" }):AddKeyPicker("Spamtoolz_X", { Default = "G", SyncToggleState = false, Mode = "Hold", Text = "Spam others Tools", NoUI = false, })
@@ -549,7 +549,7 @@ function Notify(TitleText, SubText, Duration, Force)
     Title.Position = UDim2.fromScale(0.135, 0.35)
     Title.Size = UDim2.fromScale(100, 0.35)
     Title.Font = Enum.Font.SourceSans
-    Title.Text = "[LOLHAX] " .. TitleText
+    Title.Text = "[NexusHack] " .. TitleText
     Title.TextScaled = true
     Title.TextSize = 1
     Title.TextStrokeTransparency = 0.5
@@ -2686,7 +2686,7 @@ task.spawn(function()
                     if Toggles.GN_PadlockCode.Value then
 
                         Notify("Padlock code found!", "The code is... '".. Code .."', this is also printed in console!", 10)
-                        print("[LOLHAX] The padlock code is: ".. Code)
+                        print("[NexusHack] The padlock code is: ".. Code)
 
                         PadlockCode_N = Code
                     end
@@ -2725,10 +2725,10 @@ task.spawn(function()
         end
 
         print("[BloxstrapRPC] {\"command\": \"SetRichPresence\", \"data\": " .. game:GetService("HttpService"):JSONEncode({
-            details = Bool and "[ Playing DOORS 👁️ ] Lolhax.xyz" or "<reset>",
+            details = Bool and "[ Playing DOORS 👁️ ]" or "<reset>",
             state = Bool and State or "<reset>",
             largeImage = Bool and LargeImage or { reset = true },
-            smallImage = Bool and { assetId = 16874068594, hoverText = "LOLHAX" } or { reset = true }
+            smallImage = Bool and { assetId = 16874068594, hoverText = "NexusHack V2.3" } or { reset = true }
         }) .. "}")
     end
 
