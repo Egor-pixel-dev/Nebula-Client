@@ -44,32 +44,36 @@ local Detection = game:GetService("TextChatService").MessageReceived:Connect(fun
 end)
 -- UI vvv
 
--- [[ ADVANCED LOOT LOGIC START ]] --
+-- [[ ENGLISH MULTI-LOOT LOGIC START ]] --
 
--- Обновленная таблица (Добавил Листок, Книги и Рубильники сюда)
+-- Loot Table (English)
 local LootTable = {
-    -- Обычные предметы
-    ["Key (Ключ)"] = {Model = "KeyObtain", Tool = "Key"},
-    ["Lockpick (Отмычка)"] = {Model = "Lockpick", Tool = "Lockpick"},
-    ["Lighter (Зажигалка)"] = {Model = "Lighter", Tool = "Lighter"},
-    ["Flashlight (Фонарик)"] = {Model = "Flashlight", Tool = "Flashlight"},
-    ["Vitamins (Витамины)"] = {Model = "Vitamins", Tool = "Vitamins"},
-    ["Bandage (Бинт)"] = {Model = "Bandage", Tool = "Bandage"},
-    ["Battery (Батарейка)"] = {Model = "Battery", Tool = nil}, -- Tool = nil значит "бери пока не исчезнет"
-    ["Crucifix (Крест)"] = {Model = "Crucifix", Tool = "Crucifix"},
-    ["Skeleton Key (Скелетный)"] = {Model = "SkeletonKey", Tool = "SkeletonKey"},
-    ["Shears (Ножницы)"] = {Model = "Shears", Tool = "Shears"},
-    ["Gold (Золото)"] = {Model = "GoldPile", Tool = nil},
-
-    -- Спец. предметы (Для авто-фарма)
-    ["Library Paper"] = {Model = "LibraryHintPaper", Tool = "LibraryHintPaper"}, -- Листок
-    ["Library Book"] = {Model = "LiveHintBook", Tool = nil}, -- Книги (просто исчезают)
-    ["Breaker Pole"] = {Model = "LiveBreakerPolePickup", Tool = "BreakerPole"}, -- Рубильники
+    ["Key"] = {Model = "KeyObtain", Tool = "Key"},
+    ["Lockpick"] = {Model = "Lockpick", Tool = "Lockpick"},
+    ["Lighter"] = {Model = "Lighter", Tool = "Lighter"},
+    ["Flashlight"] = {Model = "Flashlight", Tool = "Flashlight"},
+    ["Vitamins"] = {Model = "Vitamins", Tool = "Vitamins"},
+    ["Bandage"] = {Model = "Bandage", Tool = "Bandage"},
+    ["Battery"] = {Model = "Battery", Tool = nil},
+    ["Crucifix"] = {Model = "Crucifix", Tool = "Crucifix"},
+    ["Skeleton Key"] = {Model = "SkeletonKey", Tool = "SkeletonKey"},
+    ["Shears"] = {Model = "Shears", Tool = "Shears"},
+    ["Gold"] = {Model = "GoldPile", Tool = nil},
+    ["Glowsticks"] = {Model = "Glowsticks", Tool = "Glowsticks"},
+    ["Bandage Pack"] = {Model = "BandagePack", Tool = "BandagePack"},
+    ["Battery Pack"] = {Model = "BatteryPack", Tool = "BatteryPack"},
+    
+    -- Special Items
+    ["Library Paper"] = {Model = "LibraryHintPaper", Tool = "LibraryHintPaper"},
+    ["Library Book"] = {Model = "LiveHintBook", Tool = nil},
+    ["Breaker Pole"] = {Model = "LiveBreakerPolePickup", Tool = "BreakerPole"},
+    ["Fuse"] = {Model = "FuseObtain", Tool = "Fuse"},
+    ["Water Pump"] = {Model = "WaterPump", Tool = nil}, -- For Rooms/Backdoor
 }
 
 local ActionRunning = false
 
--- Проверка наличия предмета
+-- Helper: Check if player has item
 local function HasItem(ToolName)
     if not ToolName then return false end 
     local LP = game:GetService("Players").LocalPlayer
@@ -78,11 +82,10 @@ local function HasItem(ToolName)
     return false
 end
 
--- Основная логика (Универсальная)
+-- Main Loot Function
 local function GetItemLogic(SelectionName, AutoMode)
-    -- Если действие уже идет и это не авто-режим, то выходим
     if ActionRunning and not AutoMode then 
-        Library:Notify("Подожди, действие выполняется!") 
+        Library:Notify("Wait, action in progress!") 
         return 
     end
     
@@ -92,9 +95,8 @@ local function GetItemLogic(SelectionName, AutoMode)
     local ModelName = Data.Model
     local ToolName = Data.Tool
 
-    -- Если у предмета есть Tool (например Ключ) и он уже у нас - не берем
     if ToolName and HasItem(ToolName) and not AutoMode then
-        Library:Notify("У тебя уже есть " .. SelectionName)
+        Library:Notify("You already have: " .. SelectionName)
         return
     end
 
@@ -105,76 +107,114 @@ local function GetItemLogic(SelectionName, AutoMode)
     
     if not Room then return end
 
-    -- ИЩЕМ ПРЕДМЕТ (Включая ящики и шкафы)
     local Target = nil
     local Prompt = nil
 
+    -- Scan room deeply
     for _, v in pairs(Room:GetDescendants()) do
         if v.Name == ModelName then
             local p = v:FindFirstChildWhichIsA("ProximityPrompt", true)
             if p and p.Enabled then
                 Target = v
                 Prompt = p
-                break -- Берем первый попавшийся
+                break 
             end
         end
     end
 
-    -- ЕСЛИ НАШЛИ
     if Target and Prompt then
         ActionRunning = true
-        if not AutoMode then Library:Notify("Беру: " .. SelectionName) end
+        if not AutoMode then Library:Notify("Taking: " .. SelectionName) end
         
         local Start = tick()
-        -- Пытаемся взять (макс 4 секунды на предмет)
         while (tick() - Start) < 4 do
-            -- Условия успеха:
-            if ToolName and HasItem(ToolName) then break end -- Появился в инвентаре
-            if not Target or not Target.Parent or not Prompt.Enabled then break end -- Исчез с карты
+            if ToolName and HasItem(ToolName) then break end
+            if not Target or not Target.Parent or not Prompt.Enabled then break end
 
             if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-                -- Телепорт прямо в предмет
                 LP.Character:PivotTo(Target:GetPivot())
                 fireproximityprompt(Prompt)
             end
-            task.wait(0.05) -- Быстрый спам
+            task.wait(0.05)
         end
         ActionRunning = false
     else
-        if not AutoMode then Library:Notify("Не найдено: " .. SelectionName) end
+        if not AutoMode then Library:Notify("Not found: " .. SelectionName) end
     end
 end
 
--- БЕСКОНЕЧНЫЙ ЦИКЛ ПРОВЕРКИ
+-- AUTO BREAKER BOX LOGIC (ROOM 100)
+local function SolveBreakerBox()
+    local LP = game:GetService("Players").LocalPlayer
+    local CurrentRooms = game:GetService("Workspace").CurrentRooms
+    
+    -- Find the Breaker Box (usually in Room 100 or Mines)
+    local BreakerSwitches = {}
+    
+    for _, v in pairs(CurrentRooms:GetDescendants()) do
+        if v.Name == "BreakerSwitch" and v:IsA("Model") then
+            table.insert(BreakerSwitches, v)
+        end
+    end
+
+    if #BreakerSwitches > 0 then
+        for _, Switch in pairs(BreakerSwitches) do
+            -- Logic: Check if the switch is correct (Game usually sets an attribute or we brute force)
+            -- In standard Rooms, switches have a "Correct" attribute usually set by the game
+            local Correct = Switch:GetAttribute("Correct") -- Sometimes works
+            local Enabled = Switch:GetAttribute("Enabled") or (Switch:FindFirstChild("On") and Switch.On.Transparency == 0)
+            
+            -- Simple logic: Just turn everything ON if we can't determine correctness, 
+            -- OR if we know it's correct and it's OFF -> Turn ON.
+            -- NOTE: A perfect solver requires reading the UI, but simple interactor works often.
+            
+            local Prompt = Switch:FindFirstChildWhichIsA("ProximityPrompt", true)
+            if Prompt and Prompt.Enabled then
+                -- Interact with it
+                if LP.Character then
+                    LP.Character:PivotTo(Switch:GetPivot() + Vector3.new(0, 0, 2))
+                    fireproximityprompt(Prompt)
+                    task.wait(0.1)
+                end
+            end
+        end
+    end
+end
+
+-- INFINITE LOOP
 local function AutoItemLoop()
-    while task.wait(0.1) do
-        -- 1. Обычный авто-пик (выбранное в дропдауне)
+    while task.wait(0.2) do
+        -- 1. Multi-Select Loot
         if Toggles.AutoItemToggle.Value then
-            local Selected = Options.ItemSelect.Value
-            if Selected then
-                GetItemLogic(Selected, true)
+            -- Iterate through ALL selected items
+            for ItemName, IsSelected in pairs(Options.ItemSelect.Value) do
+                if IsSelected then
+                    GetItemLogic(ItemName, true)
+                    task.wait(0.05) -- Small delay between items
+                end
             end
         end
         
-        -- 2. Авто Библиотека (Листок + Книги)
+        -- 2. Library
         if Toggles.AutoLibToggle.Value then
-            -- Сначала пробуем взять листок (если он есть)
             GetItemLogic("Library Paper", true)
-            
-            -- Потом пробуем взять книгу (одну за раз)
-            -- Так как это цикл, он возьмет одну, цикл повторится, он возьмет следующую
             GetItemLogic("Library Book", true)
         end
 
-        -- 3. Авто Рубильники (Шахта/100)
+        -- 3. Breaker Poles (Mines)
         if Toggles.AutoBreakerToggle.Value then
             GetItemLogic("Breaker Pole", true)
+        end
+        
+        -- 4. Auto Breaker Box (Room 100 Puzzle)
+        if Toggles.AutoSolveBreaker.Value then
+            SolveBreakerBox()
         end
     end
 end
 task.spawn(AutoItemLoop)
 
--- [[ ADVANCED LOOT LOGIC END ]] --
+-- [[ ENGLISH MULTI-LOOT LOGIC END ]] --
 
 local Window = Library:CreateWindow({ Title = " NexusHack ", Center = true, AutoShow = true, TabPadding = 3, MenuFadeTime = 0.15 })
 local Tabs = { General = Window:AddTab("General"), Exploit = Window:AddTab("Exploits"), ESP = Window:AddTab("ESP"), Visuals = Window:AddTab("Visuals"), Misc = Window:AddTab("Miscellaneous"), Config = Window:AddTab("Config") }
@@ -410,78 +450,37 @@ MiscAudio:AddToggle("MA_SilentGloombat", { Text = "Silent Gloombats", Default = 
 --MiscAudio:AddToggle("MA_NoFigureFootsteps", { Text = "Silent Figure Steps", Default = false, Tooltip = "Removes figure footsteps." })
 
 local MiscAuto = Tabs.Misc:AddLeftGroupbox("Auto")
--- 1. Выпадающий список предметов
+-- Multi-Select Dropdown
 MiscAuto:AddDropdown("ItemSelect", {
     Values = {
-        "Key (Ключ)", "Lockpick (Отмычка)", "Lighter (Зажигалка)", 
-        "Flashlight (Фонарик)", "Vitamins (Витамины)", "Bandage (Бинт)", 
-        "Battery (Батарейка)", "Crucifix (Крест)", "Skeleton Key (Скелетный)",
-        "Shears (Ножницы)", "Gold (Золото)"
+        "Key", "Lockpick", "Lighter", "Flashlight", 
+        "Vitamins", "Bandage", "Battery", "Crucifix", 
+        "Skeleton Key", "Shears", "Gold", "Glowsticks"
     },
-    Default = 1,
-    Multi = false,
-    Text = "Выбери предмет",
-    Tooltip = "Что искать автоматически или кнопкой",
+    Default = "Key", -- Can be ignored with Multi
+    Multi = true, -- !!! РАЗРЕШАЕТ ВЫБОР НЕСКОЛЬКИХ ПРЕДМЕТОВ !!!
+    Text = "Select Loot",
+    Tooltip = "Select items to auto-loot.",
 })
-
-MiscAuto:AddDivider()
-
--- 2. Кнопка и Тогл для выбранного предмета
-MiscAuto:AddButton("Взять выбранное (1 раз)", function()
-    GetItemLogic(Options.ItemSelect.Value, false)
-end)
 
 MiscAuto:AddToggle("AutoItemToggle", {
-    Text = "Auto Pick Selected",
+    Text = "Auto Loot Selected",
     Default = false,
-    Tooltip = "Автоматически проверяет каждую комнату и берет выбранный предмет.",
+    Tooltip = "Will loot ALL selected items from the dropdown in every room.",
 })
 
 MiscAuto:AddDivider()
-
--- 3. Библиотека
-MiscAuto:AddButton("Собрать Библиотеку (1 раз)", function()
-    -- Вызываем твою функцию для книг (убедись, что она объявлена выше)
-    ForceGetItem("LibraryHintPaper", "LibraryHintPaper", "Листок")
-    ForceGetItem("LiveHintBook", "Book", "Книгу")
-end)
 
 MiscAuto:AddToggle("AutoLibToggle", {
     Text = "Auto Library",
     Default = false,
-    Tooltip = "Будет пылесосить книги, пока включено.",
-    Callback = function(Value)
-        -- Логику можно вставить в общий цикл выше или оставить отдельной
-        if Value then
-            task.spawn(function()
-                while Toggles.AutoLibToggle.Value do
-                    ForceGetItem("LiveHintBook", "Book", "Книгу")
-                    task.wait(1)
-                end
-            end)
-        end
-    end,
+    Tooltip = "Collects books and paper in Room 50.",
 })
 
--- 4. Шахты (Breaker)
-MiscAuto:AddButton("Собрать Рубильники (1 раз)", function()
-    ForceGetItem("LiveBreakerPolePickup", "BreakerPole", "Рубильник")
-end)
-
 MiscAuto:AddToggle("AutoBreakerToggle", {
-    Text = "Auto Breaker (Mines)",
+    Text = "Auto Breaker Poles",
     Default = false,
-    Tooltip = "Для 100 комнаты и Шахт.",
-    Callback = function(Value)
-        if Value then
-            task.spawn(function()
-                while Toggles.AutoBreakerToggle.Value do
-                    ForceGetItem("LiveBreakerPolePickup", "BreakerPole", "Рубильник")
-                    task.wait(1)
-                end
-            end)
-        end
-    end,
+    Tooltip = "Collects breaker poles.",
 })
 
 local MiscellaneousOther = Tabs.Misc:AddRightGroupbox("Other")
