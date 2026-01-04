@@ -277,7 +277,12 @@ MiscAudio:AddToggle("MA_NoRandomAmbience", { Text = "No Random Ambience", Defaul
 MiscAudio:AddToggle("MA_SilentGloombat", { Text = "Silent Gloombats", Default = false, Tooltip = "Makes any gloombat flying and roaring silent, due to it potentially triggering or heavily bothering some people." })
 --MiscAudio:AddToggle("MA_NoFigureFootsteps", { Text = "Silent Figure Steps", Default = false, Tooltip = "Removes figure footsteps." })
 
-local MiscellaneousOther = Tabs.Misc:AddLeftGroupbox("Other")
+local MiscAuto = Tabs.Misc:AddLeftGroupbox("Auto")
+MiscAuto:AddButton("Auto Key", function()
+    ForceGetItem("KeyObtain", "Key", "Ключ")
+end)
+
+local MiscellaneousOther = Tabs.Misc:AddRightGroupbox("Other")
 MiscellaneousOther:AddToggle("MO_antirobloxvoid", { Text = "No Roblox Void", Default = false, Tooltip = "Removes the ROBLOX fallen parts destroy height." })
 MiscellaneousOther:AddDivider()
 MiscellaneousOther:AddButton("Play Again", function()
