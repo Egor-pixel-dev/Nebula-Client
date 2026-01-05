@@ -15,7 +15,7 @@ ErrorMessageOut = game:GetService("LogService").MessageOut:Connect(function(Mess
         ErrorMessageOut:Disconnect()
 
         setclipboard("Executor: " .. identifyexecutor() .. "\n\n" .. tostring(Message))
-        Library:Notify(" NexusHack has errored while loading and will now unload. The error has been copied to your clipboard, please report this on the NH discord server! ", 4.5)
+        Library:Notify(" NexusHack has errored while loading and will now unload. The error has been copied to your clipboard, please report this on the our discord server! ", 4.5)
 
         task.delay(5, function()
             Library:Unload()
