@@ -268,6 +268,9 @@ MiscMovement:AddToggle("MM_Walkspeed", { Text = "Enable Speed Modifier", Default
 MiscMovement:AddSlider("MM_Walkspeed_S", { Text = "Walkspeed Amount", Default = 20, Min = 10, Max = 50, Rounding = 0, Compact = true, Tooltip = "Controls the player walkspeed amount." })
 MiscMovement:AddSlider("MM_Walkspeed_Boost", { Text = "Ladder Speed Boost", Default = 0, Min = 0, Max = 50, Rounding = 0, Compact = true, Tooltip = "Speed boost for climbing up ladders. High values may become unstable." })
 MiscMovement:AddDivider()
+MiscMovement:AddToggle("MM_Jump", { Text = "Enable Jump Modifier", Default = false, Tooltip = "Allow to player can jump." })
+MiscMovement:AddSlider("MM_Jump_S", { Text = "Jump Power", Default = 20, Min = 10, Max = 50, Rounding = 0, Compact = true, Tooltip = "Controls the player jump power." })
+MiscMovement:AddDivider()
 MiscMovement:AddToggle("MM_NoAcceleration", { Text = "No Acceleration", Default = false, Tooltip = "Removes acceleration while moving or switching direction." })
 
 local MiscAudio = Tabs.Misc:AddRightGroupbox("Audio")
