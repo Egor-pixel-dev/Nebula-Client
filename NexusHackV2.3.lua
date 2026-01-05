@@ -489,11 +489,6 @@ local function AutoItemLoop()
         if Toggles.AutoBreakerToggle.Value then
             GetItemLogic("Breaker Pole", true)
         end
-        
-        -- 4. Auto Breaker Box (Room 100 Puzzle)
-        if Toggles.AutoSolveBreaker.Value then
-            SolveBreakerBox()
-        end
     end
 end
 task.spawn(AutoItemLoop)
