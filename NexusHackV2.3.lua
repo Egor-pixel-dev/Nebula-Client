@@ -272,7 +272,6 @@ MiscMovement:AddToggle("MM_Jump", { Text = "Enable Jump Modifier", Default = fal
 MiscMovement:AddSlider("MM_Jump_S", { Text = "Jump Power", Default = 20, Min = 10, Max = 50, Rounding = 0, Compact = true, Tooltip = "Controls the player jump power." })
 MiscMovement:AddDivider()
 MiscMovement:AddToggle("MM_NoAcceleration", { Text = "No Acceleration", Default = false, Tooltip = "Removes acceleration while moving or switching direction." })
-local Misc_Self = MiscMovement:AddTab("Self")
 
 local MiscAudio = Tabs.Misc:AddRightGroupbox("Audio")
 MiscAudio:AddToggle("MA_SilentJammin", { Text = "Silent Jammin Modifier", Default = false, Tooltip = "Removes the jeffs shop jammin modifier music." })
