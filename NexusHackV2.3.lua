@@ -2821,6 +2821,78 @@ task.spawn(function()
 end)
 
 task.spawn(function()
+    while task.wait(0.2) and not Library.Unloaded do
+        pcall(function()
+            local Character = LocalPlayer.Character
+            if Character and Character:FindFirstChild("Collision") then
+                local RootPart = Character.PrimaryPart or Character:FindFirstChild("HumanoidRootPart")
+                
+                -- // INSTANT INTERACT (Мгновенное нажатие) //
+                if Toggles.GA_InstantInteract.Value then
+                    -- Перебираем все промпты рядом и ставим им длительность 0
+                    for _, prompt in pairs(workspace:GetDescendants()) do
+                        if prompt:IsA("ProximityPrompt") then
+                            if prompt.HoldDuration > 0 then
+                                prompt.HoldDuration = 0
+                            end
+                        end
+                    end
+                end
+
+                -- // LOOT AURA (Ящики, Золото, Предметы) //
+                if Toggles.GA_LootAura.Value and RootPart then
+                    local CurrentRoom = Rooms[LocalPlayer:GetAttribute("CurrentRoom")]
+                    
+                    if CurrentRoom then
+                        for _, v in pairs(CurrentRoom:GetDescendants()) do
+                            if v:IsA("Model") then
+                                local Prompt
+                                
+                                -- 1. Ящики (DrawerContainer)
+                                if v.Name == "DrawerContainer" then
+                                    local knob = v:FindFirstChild("Knobs")
+                                    if knob then Prompt = knob:FindFirstChild("ActivateEventPrompt") end
+                                
+                                -- 2. Золото (GoldPile)
+                                elseif v.Name == "GoldPile" then
+                                    Prompt = v:FindFirstChild("LootPrompt")
+                                
+                                -- 3. Предметы (PickupItem, KeyObtain и др.)
+                                elseif v:FindFirstChild("ModulePrompt") then
+                                    Prompt = v.ModulePrompt
+                                
+                                -- 4. Сундуки (ChestBox)
+                                elseif v.Name:sub(1, 8) == "ChestBox" then
+                                    Prompt = v:FindFirstChild("ActivateEventPrompt")
+                                
+                                -- 5. Мелочь на столах (Rolltop)
+                                elseif v.Name == "RolltopContainer" then
+                                    Prompt = v:FindFirstChild("ActivateEventPrompt")
+                                end
+
+                                -- Активация
+                                if Prompt and Prompt.Enabled then
+                                    -- Проверяем, не открыто ли уже (для ящиков)
+                                    local Interactions = Prompt:GetAttribute("Interactions")
+                                    if not Interactions then
+                                        -- Дистанция
+                                        local ObjPos = v:GetPivot().Position
+                                        if (RootPart.Position - ObjPos).Magnitude <= 15 then
+                                            fireproximityprompt(Prompt)
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+                
+            end
+        end)
+    end
+end)
+
+task.spawn(function()
     while task.wait() and not Library.Unloaded do
         if LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and Toggles.VV_Thirdperson.Value and Options.VV_Thirdperson_K:GetState() then
             for _, v in LocalPlayer.Character:GetChildren() do
