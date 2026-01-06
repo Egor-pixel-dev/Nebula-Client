@@ -15,7 +15,7 @@ ErrorMessageOut = game:GetService("LogService").MessageOut:Connect(function(Mess
         ErrorMessageOut:Disconnect()
 
         setclipboard("Executor: " .. identifyexecutor() .. "\n\n" .. tostring(Message))
-        Library:Notify(" NexusHack has errored while loading and will now unload. The error has been copied to your clipboard, please report this on the our discord server! ", 4.5)
+        Notify(" NexusHack has errored while loading and will now unload. The error has been copied to your clipboard, please report this on the our discord server! ", 4.5)
 
         task.delay(5, function()
             Library:Unload()
@@ -81,7 +81,7 @@ GeneralNotifying:AddSlider("GN_NotificationOffset_X", { Text = "X Offset", Defau
 GeneralNotifying:AddSlider("GN_NotificationOffset_Y", { Text = "Y Offset", Default = 0, Min = -1, Max = 1, Rounding = 2, Compact = true })
 GeneralNotifying:AddSlider("GN_NotificationDPISize", { Text = "Size Multiplier", Default = 1, Min = 0.8, Max = 3, Rounding = 1, Compact = true })
 GeneralNotifying:AddButton("Test Notify", function()
-    Library:Notify("This is a test notification.", "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", 2.5, true)
+    Notify("This is a test notification.", "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", 2.5, true)
 end)
 
 local ExploitSelf = Tabs.Exploit:AddLeftGroupbox("Self")
@@ -118,12 +118,12 @@ task.spawn(function()
     for _,Player in pairs(game.Players:GetPlayers()) do
         if Value == Player.Name and not plr == LocalPlayer.Name then
             table.insert(friends, Player.Name)
-            Library:Notify("Whitelistfromspamtools", "Whitelisted!")
+            Notify("Whitelistfromspamtools", "Whitelisted!")
         elseif Value == LocalPlayer.Name then
-            Library:Notify("Whitelistfromspamtools", "failed you tried whitelisting localplayer")
+            Notify("Whitelistfromspamtools", "failed you tried whitelisting localplayer")
         else
             print("sdf")
-            Library:Notify("Whitelistfromspamtools", "Player Not exist!")
+            Notify("Whitelistfromspamtools", "Player Not exist!")
         end
     end
 end) end, })
@@ -372,7 +372,7 @@ end
 -- Main Loot Function
 local function GetItemLogic(SelectionName, AutoMode)
     if ActionRunning and not AutoMode then 
-        Library:Notify("Wait, action in progress!") 
+        Notify("Wait, action in progress!") 
         return 
     end
     
@@ -383,7 +383,7 @@ local function GetItemLogic(SelectionName, AutoMode)
     local ToolName = Data.Tool
 
     if ToolName and HasItem(ToolName) and not AutoMode then
-        Library:Notify("You already have: " .. SelectionName)
+        Notify("You already have: " .. SelectionName)
         return
     end
 
@@ -411,7 +411,7 @@ local function GetItemLogic(SelectionName, AutoMode)
 
     if Target and Prompt then
         ActionRunning = true
-        if not AutoMode then Library:Notify("Taking: " .. SelectionName) end
+        if not AutoMode then Notify("Taking: " .. SelectionName) end
         
         local Start = tick()
         while (tick() - Start) < 4 do
@@ -426,7 +426,7 @@ local function GetItemLogic(SelectionName, AutoMode)
         end
         ActionRunning = false
     else
-        if not AutoMode then Library:Notify("Not found: " .. SelectionName) end
+        if not AutoMode then Notify("Not found: " .. SelectionName) end
     end
 end
 
@@ -712,7 +712,7 @@ end)
 -- this is modified version of the lolhaxv2 get player function!
 
 local GlobalOffset = 0
-function Library:Notify(TitleText, SubText, Duration, Force)
+function Notify(TitleText, SubText, Duration, Force)
     if not Force then
         if not Toggles.GN_Enabled.Value then return end
     end
@@ -1189,7 +1189,7 @@ local CameraAdded = workspace.CurrentCamera.ChildAdded:Connect(function(v)
 
     if v.Name == "Screech" then
         if Toggles.GN_Entities.Value and Options.GN_Entities_Options.Value["Screech"] then
-            Library:Notify("Entity 'Screech' has spawned!", "Look around and look at it quickly!")
+            Notify("Entity 'Screech' has spawned!", "Look around and look at it quickly!")
         end
     elseif v.Name == "LiveSanity" then
         task.delay(0.2, function()
@@ -1798,7 +1798,7 @@ local Connections = {
         repeat task.wait() until v:GetAttribute("RawName")
 
         if v:GetAttribute("RawName") == "HaltHallway" and Toggles.GN_Entities.Value and Options.GN_Entities_Options.Value["Halt"] then
-            Library:Notify("Entity 'Halt' spawns in the next room!", "...")
+            Notify("Entity 'Halt' spawns in the next room!", "...")
         end
     end),
 
@@ -2020,7 +2020,7 @@ local Connections = {
                         end)
 
                         if Toggles.GN_AnchorCode.Value then
-                            Library:Notify("Anchor code solved.", "The code for Anchor "..NextAnchor.Sign.TextLabel.Text.." is '".. Solved .."'.", 10)
+                            Notify("Anchor code solved.", "The code for Anchor "..NextAnchor.Sign.TextLabel.Text.." is '".. Solved .."'.", 10)
                         end
 
                         local Highlight, TextLabel = Esp(NextAnchor, NextAnchor.AnchorBase, "( ".. Solved .." ) Anchor "..NextAnchor.Sign.TextLabel.Text, Color3.new(0.5, 0.25, 1))
@@ -2081,7 +2081,7 @@ local Connections = {
 
                 if v.Name == "Screech" then
                     if Toggles.GN_Entities.Value and Options.GN_Entities_Options.Value["Screech"] then
-                        Library:Notify("Entity 'Screech' has spawned!", "Look around and look at it quickly!")
+                        Notify("Entity 'Screech' has spawned!", "Look around and look at it quickly!")
                     end
                 elseif v.Name == "LiveSanity" then
                     task.delay(0.2, function()
@@ -2115,7 +2115,7 @@ local Connections = {
                 end)
 
                 if Toggles.GN_Entities.Value and Options.GN_Entities_Options.Value["Gloombat Swarm"] then
-                    Library:Notify(v:GetAttribute("WaitForOpen") and "A gloombat swarm will occur in the next few rooms." or "A gloombat swarm has spawned!", "Keep off all light sources and keep going!")
+                    Notify(v:GetAttribute("WaitForOpen") and "A gloombat swarm will occur in the next few rooms." or "A gloombat swarm has spawned!", "Keep off all light sources and keep going!")
                 end
 
             elseif v.Name == "Dread" then
@@ -2129,7 +2129,7 @@ local Connections = {
                 table.insert(EspTable.Entities, {Highlight, TextLabel})
 
                 if Toggles.GN_Entities.Value and Options.GN_Entities_Options.Value["Dread"] then
-                    Library:Notify("Entity 'Dread' has spawned!", "Open the next door quickly!")
+                    Notify("Entity 'Dread' has spawned!", "Open the next door quickly!")
                 end
 
             elseif v.Name == "RushMoving" then
@@ -2144,7 +2144,7 @@ local Connections = {
 
                 if Toggles.GN_Entities.Value and Options.GN_Entities_Options.Value["Rush"] then
                     print("sdfsdfsdfsdf")
-                    Library:Notify("Entity 'Rush' has spawned!", "Find a hiding spot quickly!")
+                    Notify("Entity 'Rush' has spawned!", "Find a hiding spot quickly!")
                 end
 
             elseif v.Name == "AmbushMoving" then
@@ -2158,7 +2158,7 @@ local Connections = {
                 table.insert(EspTable.Entities, {Highlight, TextLabel})
 
                 if Toggles.GN_Entities.Value and Options.GN_Entities_Options.Value["Ambush"] then
-                    Library:Notify("Entity 'Ambush' has spawned!", "Ambush can rebound 2 - 4 times, find a hiding spot quickly!")
+                    Notify("Entity 'Ambush' has spawned!", "Ambush can rebound 2 - 4 times, find a hiding spot quickly!")
                 end
 
             elseif v.Name == "A60" then
@@ -2172,7 +2172,7 @@ local Connections = {
                 table.insert(EspTable.Entities, {Highlight, TextLabel})
 
                 if Toggles.GN_Entities.Value and Options.GN_Entities_Options.Value["A-60"] then
-                    Library:Notify("Entity 'A-60' has spawned!", "Find a hiding spot quickly!")
+                    Notify("Entity 'A-60' has spawned!", "Find a hiding spot quickly!")
                 end
 
             elseif v.Name == "A120" then
@@ -2186,7 +2186,7 @@ local Connections = {
                 table.insert(EspTable.Entities, {Highlight, TextLabel})
 
                 if Toggles.GN_Entities.Value and Options.GN_Entities_Options.Value["A-120"] then
-                    Library:Notify("Entity 'A-120' has spawned!", "Find a hiding spot quickly!")
+                    Notify("Entity 'A-120' has spawned!", "Find a hiding spot quickly!")
                 end
 
             elseif v.Name == "BackdoorRush" then
@@ -2200,7 +2200,7 @@ local Connections = {
                 table.insert(EspTable.Entities, {Highlight, TextLabel})
 
                 if Toggles.GN_Entities.Value and Options.GN_Entities_Options.Value["Blitz"] then
-                    Library:Notify("Entity 'Blitz' has spawned!", "Blitz can rebound and pause in place at random, Find a hiding spot quickly!", 5)
+                    Notify("Entity 'Blitz' has spawned!", "Blitz can rebound and pause in place at random, Find a hiding spot quickly!", 5)
                 end
 
                 local EnableChanged = v.Main.AttachmentSwitch.ParticleEmitter:GetPropertyChangedSignal("Enabled"):Connect(function()
@@ -2226,7 +2226,7 @@ local Connections = {
                 table.insert(EspTable.Entities, {Highlight, TextLabel})
 
                 if Toggles.GN_Entities.Value and Options.GN_Entities_Options.Value["Eyes"] then
-                    Library:Notify("Entity 'Eyes' has spawned!", "Avoid looking at it!")
+                    Notify("Entity 'Eyes' has spawned!", "Avoid looking at it!")
                 end
 
             elseif v.Name == "BackdoorLookman" then
@@ -2240,7 +2240,7 @@ local Connections = {
                 table.insert(EspTable.Entities, {Highlight, TextLabel})
 
                 if Toggles.GN_Entities.Value and Options.GN_Entities_Options.Value["Lookman"] then
-                    Library:Notify("Entity 'Lookman' has spawned!", "Avoid looking at it!")
+                    Notify("Entity 'Lookman' has spawned!", "Avoid looking at it!")
                 end
 
             end
@@ -2553,7 +2553,7 @@ for _, v in Rooms:GetDescendants() do
                         end)
 
                         if Toggles.GN_AnchorCode.Value then
-                            Library:Notify("Anchor code solved.", "The code for Anchor "..NextAnchor.Sign.TextLabel.Text.." is '".. Solved .."'.", 10)
+                            Notify("Anchor code solved.", "The code for Anchor "..NextAnchor.Sign.TextLabel.Text.." is '".. Solved .."'.", 10)
                         end
 
                         local Highlight, TextLabel = Esp(NextAnchor, NextAnchor.AnchorBase, "( ".. Solved .." ) Anchor "..NextAnchor.Sign.TextLabel.Text, Color3.new(0.5, 0.25, 1))
@@ -2964,7 +2964,7 @@ task.spawn(function()
                 if #Code == 5 then
                     if Toggles.GN_PadlockCode.Value then
 
-                        Library:Notify("Padlock code found!", "The code is... '".. Code .."', this is also printed in console!", 10)
+                        Notify("Padlock code found!", "The code is... '".. Code .."', this is also printed in console!", 10)
                         print("[NexusHack] The padlock code is: ".. Code)
 
                         PadlockCode_N = Code
