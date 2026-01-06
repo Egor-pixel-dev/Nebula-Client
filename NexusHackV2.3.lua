@@ -139,23 +139,25 @@ local ExploitGod = Tabs.Exploit:AddLeftGroupbox("God Mode (Safety)")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 
--- Конфигурация (Точь-в-точь как в рабочем скрипте)
-local HoverConfig = {
-    Height = 65,        -- Высота
-    BobSpeed = 4,       -- Скорость качания
-    BobAmp = 1.5,       -- Амплитуда
-    LiftSpeed = 0.8     -- Скорость взлета
-}
+local IsHiding = false
+local BaseCFrame = nil -- Точка на потолке, вокруг которой мы будем парить
+local OriginalGroundCFrame = nil -- Точка на полу, куда возвращаться
 
-local IsHovering = false
-local BaseCFrame = nil 
-local OriginalGroundCFrame = nil
 local HoverConnection = nil
 local NoclipConnection = nil
-local AutoAvoidEnabled = false
 
--- 1. Noclip (Локальный, жесткий)
-local function SetGodNoclip(state)
+-- Настройки
+local Config = {
+    Height = 65,        -- Высота подъема
+    BobSpeed = 4,       -- Скорость покачивания
+    BobAmp = 1.5,       -- Амплитуда (насколько сильно вверх-вниз)
+    LiftSpeed = 0.8     -- Время подъема (сек)
+}
+
+-- == ФУНКЦИИ ==
+
+-- 1. Noclip (Проход сквозь стены)
+local function SetNoclip(state)
     if state then
         if NoclipConnection then return end
         NoclipConnection = RunService.Stepped:Connect(function()
@@ -175,106 +177,140 @@ local function SetGodNoclip(state)
     end
 end
 
--- 2. Цикл физики (Heartbeat)
-local function StartGodLoop()
+-- 2. Логика Парения (Самое важное)
+local function StartHoverLoop()
     if HoverConnection then return end
     
-    HoverConnection = RunService.Heartbeat:Connect(function()
+    -- Heartbeat срабатывает ПОСЛЕ физики, это лучшее место для коррекции позиции
+    HoverConnection = RunService.Heartbeat:Connect(function(deltaTime)
         local Char = LocalPlayer.Character
         if not Char or not Char:FindFirstChild("HumanoidRootPart") then return end
+        
         local Root = Char.HumanoidRootPart
         
-        if IsHovering and BaseCFrame then
-            -- Математика качания
-            local BobbleY = math.sin(tick() * HoverConfig.BobSpeed) * HoverConfig.BobAmp
+        if IsHiding and BaseCFrame then
+            -- 1. Вычисляем смещение (Покачивание)
+            -- math.sin(tick()) создает плавную волну от -1 до 1
+            local BobbleY = math.sin(tick() * Config.BobSpeed) * Config.BobAmp
+            
+            -- 2. Целевая позиция = База + Покачивание
             local TargetPos = BaseCFrame * CFrame.new(0, BobbleY, 0)
             
-            -- Фиксация позиции и сброс инерции
+            -- 3. Жестко устанавливаем позицию (Телепорт каждый кадр)
             Root.CFrame = TargetPos
-            Root.AssemblyLinearVelocity = Vector3.zero
-            Root.AssemblyAngularVelocity = Vector3.zero
+            
+            -- 4. Обнуляем инерцию (чтобы сервер не тянул вниз)
+            Root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            Root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
         end
     end)
 end
 
-local function StopGodLoop()
+local function StopHoverLoop()
     if HoverConnection then
         HoverConnection:Disconnect()
         HoverConnection = nil
     end
 end
 
--- 3. Функция переключения (Главная)
-local function ToggleGodMode(Value)
+-- 3. Плавный подъем/спуск (Tween)
+local function SmoothTransition(TargetCF, OnDone)
+    local Char = LocalPlayer.Character
+    if not Char or not Char:FindFirstChild("HumanoidRootPart") then return end
+    local Root = Char.HumanoidRootPart
+    
+    local Info = TweenInfo.new(Config.LiftSpeed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local Tween = TweenService:Create(Root, Info, {CFrame = TargetCF})
+    
+    -- Во время полета тоже обнуляем гравитацию
+    Root.Anchored = true 
+    Tween:Play()
+    
+    Tween.Completed:Connect(function()
+        Root.Anchored = false -- СРАЗУ снимаем анчор после полета
+        if OnDone then OnDone() end
+    end)
+end
+
+-- 4. Переключатель
+local function ToggleLevitate(state)
     local Char = LocalPlayer.Character
     if not Char or not Char:FindFirstChild("HumanoidRootPart") then return end
     local Root = Char.HumanoidRootPart
     local Hum = Char:FindFirstChild("Humanoid")
 
-    if Value then
-        -- ВЗЛЕТ
-        IsHovering = true -- Ставим флаг сразу
+    if state then
+        -- === ВВЕРХ ===
         OriginalGroundCFrame = Root.CFrame
         
         -- Вычисляем точку в потолке
-        local TargetCeiling = OriginalGroundCFrame * CFrame.new(0, HoverConfig.Height, 0)
+        local TargetCeiling = OriginalGroundCFrame * CFrame.new(0, Config.Height, 0)
         
-        Library:Notify("God Mode: Взлет...", 3)
-        SetGodNoclip(true)
-        if Hum then Hum.PlatformStand = true end
+        Library:Notify("Подъем...")
+        SetNoclip(true)
+        if Hum then Hum.PlatformStand = true end -- Чтобы ноги не дрыгались
         
-        -- Плавный полет (Tween)
-        local Info = TweenInfo.new(HoverConfig.LiftSpeed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        local Tween = TweenService:Create(Root, Info, {CFrame = TargetCeiling})
-        
-        Root.Anchored = true -- Временно морозим для полета
-        Tween:Play()
-        
-        Tween.Completed:Connect(function()
-            if IsHovering then
-                Root.Anchored = false -- Снимаем анчор для работы Heartbeat
-                BaseCFrame = TargetCeiling -- Запоминаем высоту
-                StartGodLoop() -- Включаем удержание
-            end
+        -- Сначала плавно летим вверх (с анчором для стабильности)
+        SmoothTransition(TargetCeiling, function()
+            -- Как долетели - включаем режим парения БЕЗ анчора
+            BaseCFrame = TargetCeiling
+            IsHiding = true
+            StartHoverLoop()
+            Library:Notify("Парение активно (No Anchor)")
         end)
+        
     else
-        -- СПУСК
-        IsHovering = false
-        StopGodLoop() -- Отключаем удержание
+        -- === ВНИЗ ===
+        IsHiding = false
+        StopHoverLoop() -- Перестаем удерживать позицию
         
         if OriginalGroundCFrame then
-            Library:Notify("God Mode: Спуск...", 3)
-            local Info = TweenInfo.new(HoverConfig.LiftSpeed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-            local Tween = TweenService:Create(Root, Info, {CFrame = OriginalGroundCFrame})
+            Library:Notify("Спуск...")
             
-            Root.Anchored = true
-            Tween:Play()
-            
-            Tween.Completed:Connect(function()
-                SetGodNoclip(false)
+            -- Плавно летим вниз
+            SmoothTransition(OriginalGroundCFrame, function()
+                SetNoclip(false)
                 if Hum then Hum.PlatformStand = false end
-                Root.Anchored = false
+                
+                -- Небольшой фикс, чтобы не провалиться под пол
                 Root.Velocity = Vector3.zero
+                Library:Notify("На земле.")
             end)
         else
-            SetGodNoclip(false)
-            if Hum then Hum.PlatformStand = false end
-            Root.Anchored = false
+            SetNoclip(false)
         end
     end
 end
 
--- == UI ЭЛЕМЕНТЫ ==
+-- == UI ==
 
-local GodToggle = ExploitGod:AddToggle("GodModeToggle", {
-    Text = "Enable God Hover",
+Group:AddToggle("HoverToggle", {
+    Text = "Включить Левитацию",
     Default = false,
-    Tooltip = "Безопасное укрытие в потолке (Physics Bypass).",
+    Tooltip = "Поднимает вверх и удерживает физикой (без Anchor).",
     Callback = function(Value)
-        ToggleGodMode(Value)
-    end
+        ToggleLevitate(Value)
+    end,
 })
-GodToggle:AddKeyPicker("GodBind", { Default = "H", Text = "God Mode", Mode = "Toggle" })
+
+Group:AddSlider("HeightS", {
+    Text = "Высота",
+    Default = 65,
+    Min = 30,
+    Max = 120,
+    Rounding = 0,
+    Callback = function(v) Config.Height = v end
+})
+
+Group:AddSlider("BobAmpS", {
+    Text = "Амплитуда качания",
+    Default = 1.5,
+    Min = 0,
+    Max = 5,
+    Rounding = 1,
+    Tooltip = "Насколько сильно качаться вверх-вниз",
+    Callback = function(v) Config.BobAmp = v end
+})
 
 ExploitGod:AddToggle("AutoAvoidToggle", {
     Text = "Auto Avoid Rush/Ambush",
@@ -282,17 +318,6 @@ ExploitGod:AddToggle("AutoAvoidToggle", {
     Tooltip = "Автоматически включает God Hover при появлении монстров.",
     Callback = function(Value)
         AutoAvoidEnabled = Value
-    end
-})
-
-ExploitGod:AddSlider("GodHeightSlider", {
-    Text = "Height",
-    Default = 65,
-    Min = 40,
-    Max = 100,
-    Rounding = 0,
-    Callback = function(Value)
-        HoverConfig.Height = Value
     end
 })
 
