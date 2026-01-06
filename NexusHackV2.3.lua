@@ -303,9 +303,9 @@ Group:AddToggle("AutoAvoidToggle", {
 
 Group:AddSlider("HeightS", {
     Text = "Height (don`t change)",
-    Default = 120,
+    Default = 150,
     Min = 30,
-    Max = 120,
+    Max = 150,
     Rounding = 0,
     Callback = function(v) Config.Height = v end
 })
