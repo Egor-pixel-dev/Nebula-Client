@@ -292,7 +292,7 @@ Group:AddToggle("HoverToggle", {
     end,
 })
 
-ExploitGod:AddToggle("AutoAvoidToggle", {
+Group:AddToggle("AutoAvoidToggle", {
     Text = "Auto Avoid Rush/Ambush",
     Default = false,
     Tooltip = "Автоматически включает God Hover при появлении монстров.",
