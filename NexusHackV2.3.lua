@@ -133,6 +133,114 @@ ExploitBypass:AddToggle("EB_CrouchSpoof", { Text = "Crouch Spoof", Default = fal
 ExploitBypass:AddToggle("EB_SpeedBypass", { Text = "Speed Bypass", Default = false, Tooltip = "Attempts to mitigate the speed anticheat." })
 ExploitBypass:AddToggle("EB_ACManipulate", { Text = "Anti-Cheat Manipulation", Default = false, Tooltip = "Will teleport to the opposite direction the camera is facing to manipulate the anticheat into rubberbanding you the opposite way." }):AddKeyPicker("EB_ACManipulate_K", { Default = "T", SyncToggleState = false, Mode = "Hold", Text = "Anti-Cheat Manipulate", NoUI = false, })
 
+-- [[ GOD MODE / HOVER SYSTEM ]] --
+
+local ExploitGod = Tabs.Exploit:AddLeftGroupbox("Position spoof (God Mode)")
+
+local HoverConfig = {
+    Height = 65,
+    BobSpeed = 4,
+    BobAmp = 1.5,
+    LiftSpeed = 0.8
+}
+
+local HoverConnection = nil
+local NoclipConnection = nil
+local IsHovering = false
+local BaseCFrame = nil
+local OriginalGroundCFrame = nil
+
+local function StopHover()
+    if HoverConnection then HoverConnection:Disconnect() HoverConnection = nil end
+    if NoclipConnection then NoclipConnection:Disconnect() NoclipConnection = nil end
+    
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.PlatformStand = false
+        LocalPlayer.Character.HumanoidRootPart.Anchored = false
+    end
+end
+
+local function StartHover()
+    local Char = LocalPlayer.Character
+    if not Char or not Char:FindFirstChild("HumanoidRootPart") then return end
+    local Root = Char.HumanoidRootPart
+    
+    -- Noclip
+    NoclipConnection = RunService.Stepped:Connect(function()
+        if Char then
+            for _, part in pairs(Char:GetDescendants()) do
+                if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
+            end
+        end
+    end)
+
+    -- Physics Loop
+    HoverConnection = RunService.Heartbeat:Connect(function()
+        if IsHovering and BaseCFrame and Root then
+            local BobbleY = math.sin(tick() * HoverConfig.BobSpeed) * HoverConfig.BobAmp
+            local TargetPos = BaseCFrame * CFrame.new(0, BobbleY, 0)
+            
+            Root.CFrame = TargetPos
+            Root.AssemblyLinearVelocity = Vector3.zero
+            Root.AssemblyAngularVelocity = Vector3.zero
+        end
+    end)
+end
+
+ExploitGod:AddToggle("HoverGodToggle", {
+    Text = "Enable God Hover",
+    Default = false,
+    Tooltip = "Safe hiding in ceiling (Physics Bypass)",
+    Callback = function(Value)
+        local Char = LocalPlayer.Character
+        if not Char or not Char:FindFirstChild("HumanoidRootPart") then return end
+        local Root = Char.HumanoidRootPart
+        
+        if Value then
+            IsHovering = true
+            OriginalGroundCFrame = Root.CFrame
+            local TargetCeiling = OriginalGroundCFrame * CFrame.new(0, HoverConfig.Height, 0)
+            
+            Library:Notify("Взлетаю...")
+            
+            -- Tween Up
+            local Tween = game:GetService("TweenService"):Create(Root, TweenInfo.new(HoverConfig.LiftSpeed, Enum.EasingStyle.Quad), {CFrame = TargetCeiling})
+            Root.Anchored = true
+            Char.Humanoid.PlatformStand = true
+            Tween:Play()
+            
+            Tween.Completed:Connect(function()
+                if IsHovering then
+                    Root.Anchored = false -- Отключаем анчор для работы физики
+                    BaseCFrame = TargetCeiling
+                    StartHover()
+                    Library:Notify("God Mode Активен!")
+                end
+            end)
+        else
+            IsHovering = false
+            StopHover()
+            
+            if OriginalGroundCFrame then
+                Library:Notify("Спускаюсь...")
+                local Tween = game:GetService("TweenService"):Create(Root, TweenInfo.new(HoverConfig.LiftSpeed, Enum.EasingStyle.Quad), {CFrame = OriginalGroundCFrame})
+                Root.Anchored = true
+                Tween:Play()
+                
+                Tween.Completed:Connect(function()
+                    Root.Anchored = false
+                    Root.Velocity = Vector3.zero
+                end)
+            end
+        end
+    end
+}):AddKeyPicker("GodKey", { Default = "T", Text = "God Mode", Mode = "Toggle" })
+
+ExploitGod:AddSlider("GodHeight", {
+    Text = "Height", Default = 65, Min = 40, Max = 100, Rounding = 0,
+    Callback = function(v) HoverConfig.Height = v end
+})
+
 local ExploitRemovals = Tabs.Exploit:AddRightGroupbox("Removals")
 ExploitRemovals:AddToggle("ER_RemoveSeek", { Text = "Remove Seek Chase", Default = false, Tooltip = "Completely disables the entity 'Seek'." })
 ExploitRemovals:AddToggle("ER_NoScreech", { Text = "No Screech", Default = false, Tooltip = "Completely disables the entity 'Screech'." })
@@ -3083,5 +3191,5 @@ task.spawn(function()
     end)
 
     ErrorMessageOut:Disconnect()
-    Library:Notify("Load successful.", "Loading finished in ".. string.format("%.2f", tick() - Loadtime) .." seconds.", 10 / 3, true)
+    Notify("Load successful.", "Loading finished in ".. string.format("%.2f", tick() - Loadtime) .." seconds.", 10 / 3, true)
 end)
