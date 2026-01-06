@@ -320,6 +320,34 @@ Group:AddSlider("BobAmpS", {
     Callback = function(v) Config.BobAmp = v end
 })
 
+task.spawn(function()
+    local EntityNames = {"RushMoving", "AmbushMoving", "A60", "A120"}
+    
+    workspace.ChildAdded:Connect(function(child)
+        if AutoAvoidEnabled and table.find(EntityNames, child.Name) then
+            -- Проверяем, не включен ли уже спуф
+            if not Toggles.HoverToggle.Value then
+                Library:Notify("⚠️ АВТО-УКЛОНЕНИЕ! ВЗЛЕТ!", 5)
+                
+                -- !!! ВОТ ТУТ БЫЛА ОШИБКА !!!
+                -- Было: GodModeToggle
+                -- Стало: HoverToggle (как названо в меню выше)
+                Toggles.HoverToggle:SetValue(true) 
+                
+                -- Ждем пока монстр уйдет
+                repeat task.wait(0.5) until not child.Parent
+                
+                -- Ждем еще немного (чтобы не приземлиться на хвост)
+                task.wait(2)
+                
+                -- Спускаемся
+                Library:Notify("Чисто. Спуск.", 3)
+                Toggles.HoverToggle:SetValue(false)
+            end
+        end
+    end)
+end)
+
 local ExploitRemovals = Tabs.Exploit:AddRightGroupbox("Removals")
 ExploitRemovals:AddToggle("ER_RemoveSeek", { Text = "Remove Seek Chase", Default = false, Tooltip = "Completely disables the entity 'Seek'." })
 ExploitRemovals:AddToggle("ER_NoScreech", { Text = "No Screech", Default = false, Tooltip = "Completely disables the entity 'Screech'." })
