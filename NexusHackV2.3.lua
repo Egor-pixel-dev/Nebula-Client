@@ -133,112 +133,182 @@ ExploitBypass:AddToggle("EB_CrouchSpoof", { Text = "Crouch Spoof", Default = fal
 ExploitBypass:AddToggle("EB_SpeedBypass", { Text = "Speed Bypass", Default = false, Tooltip = "Attempts to mitigate the speed anticheat." })
 ExploitBypass:AddToggle("EB_ACManipulate", { Text = "Anti-Cheat Manipulation", Default = false, Tooltip = "Will teleport to the opposite direction the camera is facing to manipulate the anticheat into rubberbanding you the opposite way." }):AddKeyPicker("EB_ACManipulate_K", { Default = "T", SyncToggleState = false, Mode = "Hold", Text = "Anti-Cheat Manipulate", NoUI = false, })
 
--- [[ GOD MODE / HOVER SYSTEM ]] --
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
-local ExploitGod = Tabs.Exploit:AddLeftGroupbox("God Mode (Hover)")
-
-local HoverConfig = {
-    Height = 65,
-    BobSpeed = 4,
-    BobAmp = 1.5,
-    LiftSpeed = 0.8
-}
+local IsHiding = false
+local BaseCFrame = nil -- Точка на потолке, вокруг которой мы будем парить
+local OriginalGroundCFrame = nil -- Точка на полу, куда возвращаться
 
 local HoverConnection = nil
 local NoclipConnection = nil
-local IsHovering = false
-local BaseCFrame = nil
-local OriginalGroundCFrame = nil
 
-local function StopHover()
-    if HoverConnection then HoverConnection:Disconnect() HoverConnection = nil end
-    if NoclipConnection then NoclipConnection:Disconnect() NoclipConnection = nil end
-    
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.PlatformStand = false
-        LocalPlayer.Character.HumanoidRootPart.Anchored = false
+-- Настройки
+local Config = {
+    Height = 65,        -- Высота подъема
+    BobSpeed = 4,       -- Скорость покачивания
+    BobAmp = 1.5,       -- Амплитуда (насколько сильно вверх-вниз)
+    LiftSpeed = 0.8     -- Время подъема (сек)
+}
+
+-- == ФУНКЦИИ ==
+
+-- 1. Noclip (Проход сквозь стены)
+local function SetNoclip(state)
+    if state then
+        if NoclipConnection then return end
+        NoclipConnection = RunService.Stepped:Connect(function()
+            if LocalPlayer.Character then
+                for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+                    if part:IsA("BasePart") and part.CanCollide then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        if NoclipConnection then
+            NoclipConnection:Disconnect()
+            NoclipConnection = nil
+        end
     end
 end
 
-local function StartHover()
+-- 2. Логика Парения (Самое важное)
+local function StartHoverLoop()
+    if HoverConnection then return end
+    
+    -- Heartbeat срабатывает ПОСЛЕ физики, это лучшее место для коррекции позиции
+    HoverConnection = RunService.Heartbeat:Connect(function(deltaTime)
+        local Char = LocalPlayer.Character
+        if not Char or not Char:FindFirstChild("HumanoidRootPart") then return end
+        
+        local Root = Char.HumanoidRootPart
+        
+        if IsHiding and BaseCFrame then
+            -- 1. Вычисляем смещение (Покачивание)
+            -- math.sin(tick()) создает плавную волну от -1 до 1
+            local BobbleY = math.sin(tick() * Config.BobSpeed) * Config.BobAmp
+            
+            -- 2. Целевая позиция = База + Покачивание
+            local TargetPos = BaseCFrame * CFrame.new(0, BobbleY, 0)
+            
+            -- 3. Жестко устанавливаем позицию (Телепорт каждый кадр)
+            Root.CFrame = TargetPos
+            
+            -- 4. Обнуляем инерцию (чтобы сервер не тянул вниз)
+            Root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            Root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+        end
+    end)
+end
+
+local function StopHoverLoop()
+    if HoverConnection then
+        HoverConnection:Disconnect()
+        HoverConnection = nil
+    end
+end
+
+-- 3. Плавный подъем/спуск (Tween)
+local function SmoothTransition(TargetCF, OnDone)
     local Char = LocalPlayer.Character
     if not Char or not Char:FindFirstChild("HumanoidRootPart") then return end
     local Root = Char.HumanoidRootPart
     
-    -- Noclip
-    NoclipConnection = RunService.Stepped:Connect(function()
-        if Char then
-            for _, part in pairs(Char:GetDescendants()) do
-                if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
-            end
-        end
-    end)
-
-    -- Physics Loop
-    HoverConnection = RunService.Heartbeat:Connect(function()
-        if IsHovering and BaseCFrame and Root then
-            local BobbleY = math.sin(tick() * HoverConfig.BobSpeed) * HoverConfig.BobAmp
-            local TargetPos = BaseCFrame * CFrame.new(0, BobbleY, 0)
-            
-            Root.CFrame = TargetPos
-            Root.AssemblyLinearVelocity = Vector3.zero
-            Root.AssemblyAngularVelocity = Vector3.zero
-        end
+    local Info = TweenInfo.new(Config.LiftSpeed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local Tween = TweenService:Create(Root, Info, {CFrame = TargetCF})
+    
+    -- Во время полета тоже обнуляем гравитацию
+    Root.Anchored = true 
+    Tween:Play()
+    
+    Tween.Completed:Connect(function()
+        Root.Anchored = false -- СРАЗУ снимаем анчор после полета
+        if OnDone then OnDone() end
     end)
 end
 
-ExploitGod:AddToggle("HoverGodToggle", {
-    Text = "Enable God Hover",
-    Default = false,
-    Tooltip = "Safe hiding in ceiling (Physics Bypass)",
-    Callback = function(Value)
-        local Char = LocalPlayer.Character
-        if not Char or not Char:FindFirstChild("HumanoidRootPart") then return end
-        local Root = Char.HumanoidRootPart
+-- 4. Переключатель
+local function ToggleLevitate(state)
+    local Char = LocalPlayer.Character
+    if not Char or not Char:FindFirstChild("HumanoidRootPart") then return end
+    local Root = Char.HumanoidRootPart
+    local Hum = Char:FindFirstChild("Humanoid")
+
+    if state then
+        -- === ВВЕРХ ===
+        OriginalGroundCFrame = Root.CFrame
         
-        if Value then
-            IsHovering = true
-            OriginalGroundCFrame = Root.CFrame
-            local TargetCeiling = OriginalGroundCFrame * CFrame.new(0, HoverConfig.Height, 0)
+        -- Вычисляем точку в потолке
+        local TargetCeiling = OriginalGroundCFrame * CFrame.new(0, Config.Height, 0)
+        
+        Library:Notify("Подъем...")
+        SetNoclip(true)
+        if Hum then Hum.PlatformStand = true end -- Чтобы ноги не дрыгались
+        
+        -- Сначала плавно летим вверх (с анчором для стабильности)
+        SmoothTransition(TargetCeiling, function()
+            -- Как долетели - включаем режим парения БЕЗ анчора
+            BaseCFrame = TargetCeiling
+            IsHiding = true
+            StartHoverLoop()
+            Library:Notify("Парение активно (No Anchor)")
+        end)
+        
+    else
+        -- === ВНИЗ ===
+        IsHiding = false
+        StopHoverLoop() -- Перестаем удерживать позицию
+        
+        if OriginalGroundCFrame then
+            Library:Notify("Спуск...")
             
-            Library:Notify("Взлетаю...")
-            
-            -- Tween Up
-            local Tween = game:GetService("TweenService"):Create(Root, TweenInfo.new(HoverConfig.LiftSpeed, Enum.EasingStyle.Quad), {CFrame = TargetCeiling})
-            Root.Anchored = true
-            Char.Humanoid.PlatformStand = true
-            Tween:Play()
-            
-            Tween.Completed:Connect(function()
-                if IsHovering then
-                    Root.Anchored = false -- Отключаем анчор для работы физики
-                    BaseCFrame = TargetCeiling
-                    StartHover()
-                    Library:Notify("God Mode Активен!")
-                end
+            -- Плавно летим вниз
+            SmoothTransition(OriginalGroundCFrame, function()
+                SetNoclip(false)
+                if Hum then Hum.PlatformStand = false end
+                
+                -- Небольшой фикс, чтобы не провалиться под пол
+                Root.Velocity = Vector3.zero
+                Library:Notify("На земле.")
             end)
         else
-            IsHovering = false
-            StopHover()
-            
-            if OriginalGroundCFrame then
-                Library:Notify("Спускаюсь...")
-                local Tween = game:GetService("TweenService"):Create(Root, TweenInfo.new(HoverConfig.LiftSpeed, Enum.EasingStyle.Quad), {CFrame = OriginalGroundCFrame})
-                Root.Anchored = true
-                Tween:Play()
-                
-                Tween.Completed:Connect(function()
-                    Root.Anchored = false
-                    Root.Velocity = Vector3.zero
-                end)
-            end
+            SetNoclip(false)
         end
     end
-}):AddKeyPicker("GodKey", { Default = "T", Text = "God Mode", Mode = "Toggle" })
+end
 
-ExploitGod:AddSlider("GodHeight", {
-    Text = "Height", Default = 65, Min = 40, Max = 100, Rounding = 0,
-    Callback = function(v) HoverConfig.Height = v end
+-- == UI ==
+
+Group:AddToggle("HoverToggle", {
+    Text = "Включить Левитацию",
+    Default = false,
+    Tooltip = "Поднимает вверх и удерживает физикой (без Anchor).",
+    Callback = function(Value)
+        ToggleLevitate(Value)
+    end,
+})
+
+Group:AddSlider("HeightS", {
+    Text = "Высота",
+    Default = 65,
+    Min = 30,
+    Max = 120,
+    Rounding = 0,
+    Callback = function(v) Config.Height = v end
+})
+
+Group:AddSlider("BobAmpS", {
+    Text = "Амплитуда качания",
+    Default = 1.5,
+    Min = 0,
+    Max = 5,
+    Rounding = 1,
+    Tooltip = "Насколько сильно качаться вверх-вниз",
+    Callback = function(v) Config.BobAmp = v end
 })
 
 local ExploitRemovals = Tabs.Exploit:AddRightGroupbox("Removals")
