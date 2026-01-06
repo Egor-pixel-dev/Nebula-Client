@@ -133,53 +133,63 @@ ExploitBypass:AddToggle("EB_CrouchSpoof", { Text = "Crouch Spoof", Default = fal
 ExploitBypass:AddToggle("EB_SpeedBypass", { Text = "Speed Bypass", Default = false, Tooltip = "Attempts to mitigate the speed anticheat." })
 ExploitBypass:AddToggle("EB_ACManipulate", { Text = "Anti-Cheat Manipulation", Default = false, Tooltip = "Will teleport to the opposite direction the camera is facing to manipulate the anticheat into rubberbanding you the opposite way." }):AddKeyPicker("EB_ACManipulate_K", { Default = "T", SyncToggleState = false, Mode = "Hold", Text = "Anti-Cheat Manipulate", NoUI = false, })
 
--- [[ GOD MODE / HOVER SYSTEM ]] --
+-- [[ GOD MODE & AUTO AVOID SYSTEM ]] --
 
-local ExploitGod = Tabs.Exploit:AddLeftGroupbox("Position spoof (God Mode)")
+local ExploitGod = Tabs.Exploit:AddLeftGroupbox("God Mode (Safety)")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
+-- Конфигурация (Точь-в-точь как в рабочем скрипте)
 local HoverConfig = {
-    Height = 65,
-    BobSpeed = 4,
-    BobAmp = 1.5,
-    LiftSpeed = 0.8
+    Height = 65,        -- Высота
+    BobSpeed = 4,       -- Скорость качания
+    BobAmp = 1.5,       -- Амплитуда
+    LiftSpeed = 0.8     -- Скорость взлета
 }
 
+local IsHovering = false
+local BaseCFrame = nil 
+local OriginalGroundCFrame = nil
 local HoverConnection = nil
 local NoclipConnection = nil
-local IsHovering = false
-local BaseCFrame = nil
-local OriginalGroundCFrame = nil
+local AutoAvoidEnabled = false
 
-local function StopHover()
-    if HoverConnection then HoverConnection:Disconnect() HoverConnection = nil end
-    if NoclipConnection then NoclipConnection:Disconnect() NoclipConnection = nil end
-    
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.PlatformStand = false
-        LocalPlayer.Character.HumanoidRootPart.Anchored = false
+-- 1. Noclip (Локальный, жесткий)
+local function SetGodNoclip(state)
+    if state then
+        if NoclipConnection then return end
+        NoclipConnection = RunService.Stepped:Connect(function()
+            if LocalPlayer.Character then
+                for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+                    if part:IsA("BasePart") and part.CanCollide then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        if NoclipConnection then
+            NoclipConnection:Disconnect()
+            NoclipConnection = nil
+        end
     end
 end
 
-local function StartHover()
-    local Char = LocalPlayer.Character
-    if not Char or not Char:FindFirstChild("HumanoidRootPart") then return end
-    local Root = Char.HumanoidRootPart
+-- 2. Цикл физики (Heartbeat)
+local function StartGodLoop()
+    if HoverConnection then return end
     
-    -- Noclip
-    NoclipConnection = RunService.Stepped:Connect(function()
-        if Char then
-            for _, part in pairs(Char:GetDescendants()) do
-                if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
-            end
-        end
-    end)
-
-    -- Physics Loop
     HoverConnection = RunService.Heartbeat:Connect(function()
-        if IsHovering and BaseCFrame and Root then
+        local Char = LocalPlayer.Character
+        if not Char or not Char:FindFirstChild("HumanoidRootPart") then return end
+        local Root = Char.HumanoidRootPart
+        
+        if IsHovering and BaseCFrame then
+            -- Математика качания
             local BobbleY = math.sin(tick() * HoverConfig.BobSpeed) * HoverConfig.BobAmp
             local TargetPos = BaseCFrame * CFrame.new(0, BobbleY, 0)
             
+            -- Фиксация позиции и сброс инерции
             Root.CFrame = TargetPos
             Root.AssemblyLinearVelocity = Vector3.zero
             Root.AssemblyAngularVelocity = Vector3.zero
@@ -187,58 +197,103 @@ local function StartHover()
     end)
 end
 
-ExploitGod:AddToggle("HoverGodToggle", {
-    Text = "Enable God Hover",
-    Default = false,
-    Tooltip = "Safe hiding in ceiling (Physics Bypass)",
-    Callback = function(Value)
-        local Char = LocalPlayer.Character
-        if not Char or not Char:FindFirstChild("HumanoidRootPart") then return end
-        local Root = Char.HumanoidRootPart
+local function StopGodLoop()
+    if HoverConnection then
+        HoverConnection:Disconnect()
+        HoverConnection = nil
+    end
+end
+
+-- 3. Функция переключения (Главная)
+local function ToggleGodMode(Value)
+    local Char = LocalPlayer.Character
+    if not Char or not Char:FindFirstChild("HumanoidRootPart") then return end
+    local Root = Char.HumanoidRootPart
+    local Hum = Char:FindFirstChild("Humanoid")
+
+    if Value then
+        -- ВЗЛЕТ
+        IsHovering = true -- Ставим флаг сразу
+        OriginalGroundCFrame = Root.CFrame
         
-        if Value then
-            IsHovering = true
-            OriginalGroundCFrame = Root.CFrame
-            local TargetCeiling = OriginalGroundCFrame * CFrame.new(0, HoverConfig.Height, 0)
+        -- Вычисляем точку в потолке
+        local TargetCeiling = OriginalGroundCFrame * CFrame.new(0, HoverConfig.Height, 0)
+        
+        Library:Notify("God Mode: Взлет...", 3)
+        SetGodNoclip(true)
+        if Hum then Hum.PlatformStand = true end
+        
+        -- Плавный полет (Tween)
+        local Info = TweenInfo.new(HoverConfig.LiftSpeed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local Tween = TweenService:Create(Root, Info, {CFrame = TargetCeiling})
+        
+        Root.Anchored = true -- Временно морозим для полета
+        Tween:Play()
+        
+        Tween.Completed:Connect(function()
+            if IsHovering then
+                Root.Anchored = false -- Снимаем анчор для работы Heartbeat
+                BaseCFrame = TargetCeiling -- Запоминаем высоту
+                StartGodLoop() -- Включаем удержание
+            end
+        end)
+    else
+        -- СПУСК
+        IsHovering = false
+        StopGodLoop() -- Отключаем удержание
+        
+        if OriginalGroundCFrame then
+            Library:Notify("God Mode: Спуск...", 3)
+            local Info = TweenInfo.new(HoverConfig.LiftSpeed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            local Tween = TweenService:Create(Root, Info, {CFrame = OriginalGroundCFrame})
             
-            Library:Notify("Взлетаю...")
-            
-            -- Tween Up
-            local Tween = game:GetService("TweenService"):Create(Root, TweenInfo.new(HoverConfig.LiftSpeed, Enum.EasingStyle.Quad), {CFrame = TargetCeiling})
             Root.Anchored = true
-            Char.Humanoid.PlatformStand = true
             Tween:Play()
             
             Tween.Completed:Connect(function()
-                if IsHovering then
-                    Root.Anchored = false -- Отключаем анчор для работы физики
-                    BaseCFrame = TargetCeiling
-                    StartHover()
-                    Library:Notify("God Mode Активен!")
-                end
+                SetGodNoclip(false)
+                if Hum then Hum.PlatformStand = false end
+                Root.Anchored = false
+                Root.Velocity = Vector3.zero
             end)
         else
-            IsHovering = false
-            StopHover()
-            
-            if OriginalGroundCFrame then
-                Library:Notify("Спускаюсь...")
-                local Tween = game:GetService("TweenService"):Create(Root, TweenInfo.new(HoverConfig.LiftSpeed, Enum.EasingStyle.Quad), {CFrame = OriginalGroundCFrame})
-                Root.Anchored = true
-                Tween:Play()
-                
-                Tween.Completed:Connect(function()
-                    Root.Anchored = false
-                    Root.Velocity = Vector3.zero
-                end)
-            end
+            SetGodNoclip(false)
+            if Hum then Hum.PlatformStand = false end
+            Root.Anchored = false
         end
     end
-}):AddKeyPicker("GodKey", { Default = "T", Text = "God Mode", Mode = "Toggle" })
+end
 
-ExploitGod:AddSlider("GodHeight", {
-    Text = "Height", Default = 65, Min = 40, Max = 100, Rounding = 0,
-    Callback = function(v) HoverConfig.Height = v end
+-- == UI ЭЛЕМЕНТЫ ==
+
+local GodToggle = ExploitGod:AddToggle("GodModeToggle", {
+    Text = "Enable God Hover",
+    Default = false,
+    Tooltip = "Безопасное укрытие в потолке (Physics Bypass).",
+    Callback = function(Value)
+        ToggleGodMode(Value)
+    end
+})
+GodToggle:AddKeyPicker("GodBind", { Default = "H", Text = "God Mode", Mode = "Toggle" })
+
+ExploitGod:AddToggle("AutoAvoidToggle", {
+    Text = "Auto Avoid Rush/Ambush",
+    Default = false,
+    Tooltip = "Автоматически включает God Hover при появлении монстров.",
+    Callback = function(Value)
+        AutoAvoidEnabled = Value
+    end
+})
+
+ExploitGod:AddSlider("GodHeightSlider", {
+    Text = "Height",
+    Default = 65,
+    Min = 40,
+    Max = 100,
+    Rounding = 0,
+    Callback = function(Value)
+        HoverConfig.Height = Value
+    end
 })
 
 local ExploitRemovals = Tabs.Exploit:AddRightGroupbox("Removals")
@@ -3158,6 +3213,32 @@ task.spawn(function()
         VoidModule.stuff = VoidFunction
         SeekModule.tease = SeekFunction
     end)
+
+    -- == ЛОГИКА АВТО-УКЛОНЕНИЯ ==
+
+task.spawn(function()
+    local EntityNames = {"RushMoving", "AmbushMoving", "A60", "A120"}
+    
+    workspace.ChildAdded:Connect(function(child)
+        if AutoAvoidEnabled and table.find(EntityNames, child.Name) then
+            -- Если мы еще не в полете - взлетаем
+            if not Toggles.GodModeToggle.Value then
+                Library:Notify("Опасность! Авто-уклонение активировано!", 5)
+                Toggles.GodModeToggle:SetValue(true)
+                
+                -- Ждем пока монстр исчезнет
+                repeat task.wait(0.5) until not child.Parent
+                
+                -- Ждем еще немного для верности
+                task.wait(1.5)
+                
+                -- Спускаемся
+                Library:Notify("Опасность миновала. Спуск.", 3)
+                Toggles.GodModeToggle:SetValue(false)
+            end
+        end
+    end)
+end)
 
     MenuProperties:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", { Default = "RightShift", NoUI = true, Text = "Menu keybind" })
     MenuProperties:AddDivider()
