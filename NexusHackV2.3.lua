@@ -283,8 +283,9 @@ local function ToggleLevitate(state)
 end
 
 -- == UI ==
+local ExploitGod = Tabs.Exploit:AddRightGroupbox("God Mode (Safety)")
 
-Group:AddToggle("HoverToggle", {
+ExploitGod:AddToggle("HoverToggle", {
     Text = "Включить Левитацию",
     Default = false,
     Tooltip = "Поднимает вверх и удерживает физикой (без Anchor).",
@@ -293,7 +294,7 @@ Group:AddToggle("HoverToggle", {
     end,
 })
 
-Group:AddSlider("HeightS", {
+ExploitGod:AddSlider("HeightS", {
     Text = "Высота",
     Default = 65,
     Min = 30,
@@ -302,7 +303,7 @@ Group:AddSlider("HeightS", {
     Callback = function(v) Config.Height = v end
 })
 
-Group:AddSlider("BobAmpS", {
+ExploitGod:AddSlider("BobAmpS", {
     Text = "Амплитуда качания",
     Default = 1.5,
     Min = 0,
