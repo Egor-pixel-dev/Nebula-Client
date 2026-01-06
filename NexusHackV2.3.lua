@@ -133,7 +133,7 @@ ExploitBypass:AddToggle("EB_CrouchSpoof", { Text = "Crouch Spoof", Default = fal
 ExploitBypass:AddToggle("EB_SpeedBypass", { Text = "Speed Bypass", Default = false, Tooltip = "Attempts to mitigate the speed anticheat." })
 ExploitBypass:AddToggle("EB_ACManipulate", { Text = "Anti-Cheat Manipulation", Default = false, Tooltip = "Will teleport to the opposite direction the camera is facing to manipulate the anticheat into rubberbanding you the opposite way." }):AddKeyPicker("EB_ACManipulate_K", { Default = "T", SyncToggleState = false, Mode = "Hold", Text = "Anti-Cheat Manipulate", NoUI = false, })
 
-local Group = Tab:AddLeftGroupbox("Levitation System")
+local Group = Tabs.Exploit:AddLeftGroupbox("Position Spoof (God Mode)")
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -247,7 +247,6 @@ local function ToggleLevitate(state)
         -- Вычисляем точку в потолке
         local TargetCeiling = OriginalGroundCFrame * CFrame.new(0, Config.Height, 0)
         
-        Library:Notify("Подъем...")
         SetNoclip(true)
         if Hum then Hum.PlatformStand = true end -- Чтобы ноги не дрыгались
         
@@ -266,7 +265,6 @@ local function ToggleLevitate(state)
         StopHoverLoop() -- Перестаем удерживать позицию
         
         if OriginalGroundCFrame then
-            Library:Notify("Спуск...")
             
             -- Плавно летим вниз
             SmoothTransition(OriginalGroundCFrame, function()
@@ -286,7 +284,7 @@ end
 -- == UI ==
 
 Group:AddToggle("HoverToggle", {
-    Text = "Включить Левитацию",
+    Text = "Position Spoof",
     Default = false,
     Tooltip = "Поднимает вверх и удерживает физикой (без Anchor).",
     Callback = function(Value)
@@ -294,9 +292,18 @@ Group:AddToggle("HoverToggle", {
     end,
 })
 
+ExploitGod:AddToggle("AutoAvoidToggle", {
+    Text = "Auto Avoid Rush/Ambush",
+    Default = false,
+    Tooltip = "Автоматически включает God Hover при появлении монстров.",
+    Callback = function(Value)
+        AutoAvoidEnabled = Value
+    end
+})
+
 Group:AddSlider("HeightS", {
-    Text = "Высота",
-    Default = 65,
+    Text = "Height (don`t change)",
+    Default = 120,
     Min = 30,
     Max = 120,
     Rounding = 0,
@@ -304,7 +311,7 @@ Group:AddSlider("HeightS", {
 })
 
 Group:AddSlider("BobAmpS", {
-    Text = "Амплитуда качания",
+    Text = "Physhic Bypass (don`t change) ",
     Default = 1.5,
     Min = 0,
     Max = 5,
@@ -678,6 +685,29 @@ task.spawn(AutoItemLoop)
 
 -- [[ ENGLISH MULTI-LOOT LOGIC END ]] --
 
+task.spawn(function()
+    local EntityNames = {"RushMoving", "AmbushMoving", "A60", "A120"}
+    
+    workspace.ChildAdded:Connect(function(child)
+        if AutoAvoidEnabled and table.find(EntityNames, child.Name) then
+            -- Если мы еще не в полете - взлетаем
+            if not Toggles.GodModeToggle.Value then
+                Library:Notify("Опасность! Авто-уклонение активировано!", 5)
+                Toggles.GodModeToggle:SetValue(true)
+                
+                -- Ждем пока монстр исчезнет
+                repeat task.wait(0.5) until not child.Parent
+                
+                -- Ждем еще немного для верности
+                task.wait(1.5)
+                
+                -- Спускаемся
+                Library:Notify("Опасность миновала. Спуск.", 3)
+                Toggles.GodModeToggle:SetValue(false)
+            end
+        end
+    end)
+end)
 
 local A90Hook
 local ScreechHook
