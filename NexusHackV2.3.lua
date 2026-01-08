@@ -133,219 +133,256 @@ ExploitBypass:AddToggle("EB_CrouchSpoof", { Text = "Crouch Spoof", Default = fal
 ExploitBypass:AddToggle("EB_SpeedBypass", { Text = "Speed Bypass", Default = false, Tooltip = "Attempts to mitigate the speed anticheat." })
 ExploitBypass:AddToggle("EB_ACManipulate", { Text = "Anti-Cheat Manipulation", Default = false, Tooltip = "Will teleport to the opposite direction the camera is facing to manipulate the anticheat into rubberbanding you the opposite way." }):AddKeyPicker("EB_ACManipulate_K", { Default = "T", SyncToggleState = false, Mode = "Hold", Text = "Anti-Cheat Manipulate", NoUI = false, })
 
-local Group = Tabs.Exploit:AddLeftGroupbox("Position Spoof (God Mode)")
-
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local IsHiding = false
-local BaseCFrame = nil -- Точка на потолке, вокруг которой мы будем парить
-local OriginalGroundCFrame = nil -- Точка на полу, куда возвращаться
+local lp = Players.LocalPlayer
 
-local HoverConnection = nil
-local NoclipConnection = nil
+-- Локальные переменные логики
+local AutoMode = "Toggle"
+local PreviousMode = "Toggle"
+local AutoDistance = 166
+local ActiveEntities = {}
 
--- Настройки
-local Config = {
-    Height = 65,        -- Высота подъема
-    BobSpeed = 4,       -- Скорость покачивания
-    BobAmp = 1.5,       -- Амплитуда (насколько сильно вверх-вниз)
-    LiftSpeed = 0.8     -- Время подъема (сек)
-}
+-- == ЛОГИКА GODMODE (Точь-в-точь как в оригинале) ==
+local function setGodmode(state)
+    local char = lp.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local root = char:FindFirstChild("HumanoidRootPart")
+    local collision = char:FindFirstChild("Collision")
+    
+    if not (hum and root and collision) then return end
 
--- == ФУНКЦИИ ==
+    local crouch = collision:FindFirstChild("CollisionCrouch")
 
--- 1. Noclip (Проход сквозь стены)
-local function SetNoclip(state)
     if state then
-        if NoclipConnection then return end
-        NoclipConnection = RunService.Stepped:Connect(function()
-            if LocalPlayer.Character then
-                for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-                    if part:IsA("BasePart") and part.CanCollide then
-                        part.CanCollide = false
-                    end
-                end
+        -- Включаем приседание на сервере (уменьшает хитбокс)
+        if ReplicatedStorage:FindFirstChild("RemotesFolder") and ReplicatedStorage.RemotesFolder:FindFirstChild("Crouch") then
+            ReplicatedStorage.RemotesFolder.Crouch:FireServer(true)
+        end
+        
+        -- Сплющиваем коллизию
+        collision.Size = Vector3.new(1, 0.001, 3)
+        if crouch then
+            crouch.Size = Vector3.new(1, 0.001, 3)
+            crouch.Position = root.Position - Vector3.new(0, 1, 0)
+        end
+        
+        -- Опускаем HipHeight в 0 (персонаж проваливается по пояс, но ходит)
+        hum.HipHeight = 0.0001
+    else
+        -- Выключаем
+        if ReplicatedStorage:FindFirstChild("RemotesFolder") and ReplicatedStorage.RemotesFolder:FindFirstChild("Crouch") then
+            ReplicatedStorage.RemotesFolder.Crouch:FireServer(false)
+        end
+        
+        -- Восстанавливаем позицию (поднимаем, чтобы не застрять)
+        root.CFrame = root.CFrame + Vector3.new(0, 3, 0)
+        
+        -- Восстанавливаем размеры
+        collision.Size = Vector3.new(5.5, 3, 3)
+        if crouch then
+            crouch.Size = Vector3.new(3, 3, 3)
+            crouch.Position = root.Position - Vector3.new(0, 1, 0)
+        end
+        hum.HipHeight = 2.4 -- Стандартная высота в DOORS
+    end
+end
+
+local function safeDisableGod()
+    if AutoMode == "Always" then return end
+    setGodmode(false)
+end
+
+-- == ИНТЕРФЕЙС ==
+local group = Tabs.Exploit:AddLeftGroupbox("Position Spoof")
+
+group:AddDropdown("GodmodeMode", {
+    Values = {"Toggle", "Automatic", "Hold", "Always", "Never"},
+    Default = "Toggle",
+    Text = "Mode",
+    Tooltip = "Selext mode.",
+    Callback = function(mode)
+        -- Логика переключения режимов
+        if PreviousMode == "Always" and mode ~= "Always" then
+            if Toggles.PositionSpoof.Value then
+                Toggles.PositionSpoof:SetValue(false)
+                setGodmode(false)
             end
-        end)
-    else
-        if NoclipConnection then
-            NoclipConnection:Disconnect()
-            NoclipConnection = nil
         end
-    end
-end
 
--- 2. Логика Парения (Самое важное)
-local function StartHoverLoop()
-    if HoverConnection then return end
-    
-    -- Heartbeat срабатывает ПОСЛЕ физики, это лучшее место для коррекции позиции
-    HoverConnection = RunService.Heartbeat:Connect(function(deltaTime)
-        local Char = LocalPlayer.Character
-        if not Char or not Char:FindFirstChild("HumanoidRootPart") then return end
-        
-        local Root = Char.HumanoidRootPart
-        
-        if IsHiding and BaseCFrame then
-            -- 1. Вычисляем смещение (Покачивание)
-            -- math.sin(tick()) создает плавную волну от -1 до 1
-            local BobbleY = math.sin(tick() * Config.BobSpeed) * Config.BobAmp
-            
-            -- 2. Целевая позиция = База + Покачивание
-            local TargetPos = BaseCFrame * CFrame.new(0, BobbleY, 0)
-            
-            -- 3. Жестко устанавливаем позицию (Телепорт каждый кадр)
-            Root.CFrame = TargetPos
-            
-            -- 4. Обнуляем инерцию (чтобы сервер не тянул вниз)
-            Root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-            Root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+        AutoMode = mode
+        PreviousMode = mode
+
+        -- Обновляем текст бинда (визуально)
+        if Options.PositionSpoofKey then
+            -- Obsidian не поддерживает динамическое изменение текста KeyPicker напрямую через .Text = ..., 
+            -- но логика внутри будет работать.
         end
-    end)
-end
 
-local function StopHoverLoop()
-    if HoverConnection then
-        HoverConnection:Disconnect()
-        HoverConnection = nil
-    end
-end
-
--- 3. Плавный подъем/спуск (Tween)
-local function SmoothTransition(TargetCF, OnDone)
-    local Char = LocalPlayer.Character
-    if not Char or not Char:FindFirstChild("HumanoidRootPart") then return end
-    local Root = Char.HumanoidRootPart
-    
-    local Info = TweenInfo.new(Config.LiftSpeed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local Tween = TweenService:Create(Root, Info, {CFrame = TargetCF})
-    
-    -- Во время полета тоже обнуляем гравитацию
-    Root.Anchored = true 
-    Tween:Play()
-    
-    Tween.Completed:Connect(function()
-        Root.Anchored = false -- СРАЗУ снимаем анчор после полета
-        if OnDone then OnDone() end
-    end)
-end
-
--- 4. Переключатель
-local function ToggleLevitate(state)
-    local Char = LocalPlayer.Character
-    if not Char or not Char:FindFirstChild("HumanoidRootPart") then return end
-    local Root = Char.HumanoidRootPart
-    local Hum = Char:FindFirstChild("Humanoid")
-
-    if state then
-        -- === ВВЕРХ ===
-        OriginalGroundCFrame = Root.CFrame
-        
-        -- Вычисляем точку в потолке
-        local TargetCeiling = OriginalGroundCFrame * CFrame.new(0, Config.Height, 0)
-        
-        SetNoclip(true)
-        if Hum then Hum.PlatformStand = true end -- Чтобы ноги не дрыгались
-        
-        -- Сначала плавно летим вверх (с анчором для стабильности)
-        SmoothTransition(TargetCeiling, function()
-            -- Как долетели - включаем режим парения БЕЗ анчора
-            BaseCFrame = TargetCeiling
-            IsHiding = true
-            StartHoverLoop()
-            Library:Notify("Парение активно (No Anchor)")
-        end)
-        
-    else
-        -- === ВНИЗ ===
-        IsHiding = false
-        StopHoverLoop() -- Перестаем удерживать позицию
-        
-        if OriginalGroundCFrame then
-            
-            -- Плавно летим вниз
-            SmoothTransition(OriginalGroundCFrame, function()
-                SetNoclip(false)
-                if Hum then Hum.PlatformStand = false end
-                
-                -- Небольшой фикс, чтобы не провалиться под пол
-                Root.Velocity = Vector3.zero
-                Library:Notify("На земле.")
-            end)
+        -- Блокировка переключателя в зависимости от режима
+        if mode == "Always" then
+            Toggles.PositionSpoof:SetValue(true)
+            -- Toggles.PositionSpoof:SetLocked(true) -- Obsidian может не иметь SetLocked, опустим
+        elseif mode == "Never" then
+            Toggles.PositionSpoof:SetValue(false)
+            -- Toggles.PositionSpoof:SetLocked(true)
         else
-            SetNoclip(false)
+            -- Toggles.PositionSpoof:SetLocked(false)
         end
-    end
-end
-
--- == UI ==
-
-Group:AddToggle("HoverToggle", {
-    Text = "Position Spoof",
-    Default = false,
-    Tooltip = "Поднимает вверх и удерживает физикой (без Anchor).",
-    Callback = function(Value)
-        ToggleLevitate(Value)
     end,
 })
 
-Group:AddToggle("AutoAvoidToggle", {
-    Text = "Auto Avoid Rush/Ambush",
-    Default = false,
-    Tooltip = "Автоматически включает God Hover при появлении монстров.",
-    Callback = function(Value)
-        AutoAvoidEnabled = Value
-    end
-})
-
-Group:AddSlider("HeightS", {
-    Text = "Height (don`t change)",
-    Default = 150,
-    Min = 30,
-    Max = 150,
+group:AddSlider("AutoGodDistance", {
+    Text = "Auto Activate Distance",
+    Default = 166,
+    Min = 50,
+    Max = 600,
     Rounding = 0,
-    Callback = function(v) Config.Height = v end
+    Compact = true,
+    Callback = function(val)
+        AutoDistance = val
+    end,
 })
 
-Group:AddSlider("BobAmpS", {
-    Text = "Physhic Bypass (don`t change) ",
-    Default = 1.5,
-    Min = 0,
-    Max = 5,
-    Rounding = 1,
-    Tooltip = "Насколько сильно качаться вверх-вниз",
-    Callback = function(v) Config.BobAmp = v end
+group:AddToggle("PositionSpoof", {
+    Default = false,
+    Text = "Enable Spoof",
+    Tooltip = "Включает годмод вручную или разрешает работу автоматики.",
+    Callback = function(v)
+        if AutoMode == "Always" or AutoMode == "Never" then return end
+        if v then
+            setGodmode(true)
+        else
+            safeDisableGod()
+        end
+    end,
+}):AddKeyPicker("PositionSpoofKey", {
+    Default = "G",
+    Mode = "Toggle",
+    Text = "Spoof Keybind",
+    NoUI = false,
+    SyncToggleState = true,
 })
 
-task.spawn(function()
-    local EntityNames = {"RushMoving", "AmbushMoving", "A60", "A120"}
+-- == ОБНАРУЖЕНИЕ МОНСТРОВ ==
+local EntList = {"a60", "ambushmoving", "backdoorrush", "rushmoving", "mandrake"}
+
+local function IsValidEntity(entity)
+    return table.find(EntList, entity.Name:lower()) ~= nil
+end
+
+workspace.DescendantAdded:Connect(function(entity)
+    if not IsValidEntity(entity) then return end
     
-    workspace.ChildAdded:Connect(function(child)
-        if AutoAvoidEnabled and table.find(EntityNames, child.Name) then
-            -- Проверяем, не включен ли уже спуф
-            if not Toggles.HoverToggle.Value then
-                Library:Notify("⚠️ АВТО-УКЛОНЕНИЕ! ВЗЛЕТ!", 5)
-                
-                -- !!! ВОТ ТУТ БЫЛА ОШИБКА !!!
-                -- Было: GodModeToggle
-                -- Стало: HoverToggle (как названо в меню выше)
-                Toggles.HoverToggle:SetValue(true) 
-                
-                -- Ждем пока монстр уйдет
-                repeat task.wait(0.5) until not child.Parent
-                
-                -- Ждем еще немного (чтобы не приземлиться на хвост)
-                task.wait(2)
-                
-                -- Спускаемся
-                Library:Notify("Чисто. Спуск.", 3)
-                Toggles.HoverToggle:SetValue(false)
+    -- Ждем BasePart внутри монстра (обычно Main или PrimaryPart)
+    local part = entity:FindFirstChildWhichIsA("BasePart")
+    if not part then
+        -- Иногда нужно подождать загрузки
+        task.delay(0.1, function()
+            local p = entity:FindFirstChildWhichIsA("BasePart")
+            if p then ActiveEntities[entity] = p end
+        end)
+    else
+        ActiveEntities[entity] = part
+    end
+end)
+
+-- Очистка удаленных монстров
+workspace.DescendantRemoving:Connect(function(entity)
+    if ActiveEntities[entity] then
+        ActiveEntities[entity] = nil
+    end
+end)
+
+-- == ГЛАВНЫЙ ЦИКЛ (MODE LOGIC) ==
+RunService.RenderStepped:Connect(function()
+    if Library.Unloaded then return end
+    if AutoMode == "Never" then return end
+
+    if AutoMode == "Always" then
+        if not Toggles.PositionSpoof.Value then
+            Toggles.PositionSpoof:SetValue(true)
+        end
+        return
+    end
+
+    local root = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    -- Фикс позиции CollisionCrouch (чтобы не улетал)
+    local collision = lp.Character and lp.Character:FindFirstChild("Collision")
+    if collision then
+        local crouch = collision:FindFirstChild("CollisionCrouch")
+        if crouch then
+            crouch.Position = root.Position - Vector3.new(0, 1, 0)
+        end
+    end
+
+    -- Логика Automatic
+    if AutoMode == "Automatic" then
+        local shouldEnable = false
+        
+        -- Проверяем дистанцию до всех активных монстров
+        for entity, part in pairs(ActiveEntities) do
+            if not entity.Parent then
+                ActiveEntities[entity] = nil
+            elseif part then
+                local dist = (root.Position - part.Position).Magnitude
+                if dist < AutoDistance then
+                    shouldEnable = true
+                    break
+                end
             end
         end
-    end)
+        
+        if shouldEnable then
+            if not Toggles.PositionSpoof.Value then
+                Toggles.PositionSpoof:SetValue(true)
+            end
+        else
+            if Toggles.PositionSpoof.Value then
+                Toggles.PositionSpoof:SetValue(false)
+                safeDisableGod()
+            end
+        end
+
+    -- Логика Hold (Удержание кнопки)
+    elseif AutoMode == "Hold" then
+        local keyState = Options.PositionSpoofKey:GetState()
+        
+        if keyState then
+            if not Toggles.PositionSpoof.Value then
+                Toggles.PositionSpoof:SetValue(true)
+            end
+        else
+            if Toggles.PositionSpoof.Value then
+                Toggles.PositionSpoof:SetValue(false)
+                safeDisableGod()
+            end
+        end
+    end
+end)
+
+-- == ПОСТОЯННОЕ ОБНОВЛЕНИЕ ==
+-- (Гарантирует, что HipHeight и Collision остаются сломанными, даже если игра пытается их исправить)
+task.spawn(function()
+    while true do
+        task.wait(0.01)
+        if Library.Unloaded then break end
+        
+        if AutoMode == "Never" then 
+            if Toggles.PositionSpoof.Value then Toggles.PositionSpoof:SetValue(false) end
+            continue 
+        end 
+        
+        if AutoMode == "Always" or (Toggles.PositionSpoof and Toggles.PositionSpoof.Value) then
+            setGodmode(true)
+        end
+    end
 end)
 
 local ExploitRemovals = Tabs.Exploit:AddRightGroupbox("Removals")
