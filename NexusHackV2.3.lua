@@ -156,7 +156,7 @@ end
 local SelfGroup = Tabs.PlayerTab:AddRightGroupbox("Self")
 -- Полет
 SelfGroup:AddToggle("FlyToggle", {
-    Text = "Enable Fly",
+    Text = "Enable Fly [ don't work :( ]",
     Default = false,
     Callback = function(Value)
         UpdateFly(Value)
