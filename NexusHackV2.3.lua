@@ -45,7 +45,7 @@ end)
 -- UI vvv
 
 local Window = Library:CreateWindow({ Title = " NexusHack ", Center = true, AutoShow = true, TabPadding = 3, MenuFadeTime = 0.15, Footer = "" .. LocalPlayer.Name })
-local Tabs = { General = Window:AddTab("General"), Exploit = Window:AddTab("Exploits"), ESP = Window:AddTab("ESP"), Visuals = Window:AddTab("Visuals"), Misc = Window:AddTab("Miscellaneous"), Config = Window:AddTab("Config") }
+local Tabs = { General = Window:AddTab("General"), PlayerTab = Window:AddTab("Player", "user"), Exploit = Window:AddTab("Exploits"), ESP = Window:AddTab("ESP"), Visuals = Window:AddTab("Visuals"), Misc = Window:AddTab("Miscellaneous"), Config = Window:AddTab("Config") }
 
 local GeneralAutomation = Tabs.General:AddLeftGroupbox("Automation")
 GeneralAutomation:AddToggle("GA_AutoInteract", { Text = "Automatic Interact", Default = false, }):AddKeyPicker("GA_AutoInteract_K", { Default = "R", SyncToggleState = false, Mode = "Hold", Text = "Auto Interact", NoUI = false, Tooltip = "Will activate any nearby interactables when key is active." })
@@ -83,6 +83,108 @@ GeneralNotifying:AddSlider("GN_NotificationDPISize", { Text = "Size Multiplier",
 GeneralNotifying:AddButton("Test Notify", function()
     Notify("This is a test notification.", "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", 2.5, true)
 end)
+
+
+
+local MovementGroup = Tabs.PlayerTab:AddLeftGroupbox("Movement")
+MovementGroup:AddToggle("MM_Walkspeed", { Text = "Enable Speed Modifier", Default = false, Tooltip = "Sets player speed according to value set." })
+MovementGroup:AddSlider("MM_Walkspeed_S", { Text = "Walkspeed Amount", Default = 20, Min = 10, Max = 50, Rounding = 0, Compact = true, Tooltip = "Controls the player walkspeed amount." })
+MovementGroup:AddSlider("MM_Walkspeed_Boost", { Text = "Ladder Speed Boost", Default = 0, Min = 0, Max = 50, Rounding = 0, Compact = true, Tooltip = "Speed boost for climbing up ladders. High values may become unstable." })
+MovementGroup:AddDivider()
+MovementGroup:AddToggle("MM_Jump", { Text = "Enable Jump Power Modifier", Default = false, Tooltip = "Allow to mofify jump power." })
+MovementGroup:AddSlider("MM_Jump_S", { Text = "Jump Power", Default = 20, Min = 10, Max = 50, Rounding = 0, Compact = true, Tooltip = "Controls the player jump power." })
+MovementGroup:AddDivider()
+MovementGroup:AddToggle("MM_NoAcceleration", { Text = "No Acceleration", Default = false, Tooltip = "Removes acceleration while moving or switching direction." })
+
+-- == ПЕРЕМЕННЫЕ ==
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local NoclipConnection = nil
+
+-- == ФУНКЦИИ ==
+
+-- Включение Ноклипа
+local function EnableNoclip()
+    if NoclipConnection then return end
+    
+    -- Stepped срабатывает перед физикой
+    NoclipConnection = RunService.Stepped:Connect(function()
+        local char = LocalPlayer.Character
+        if char then
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") and part.CanCollide then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+-- Выключение Ноклипа (С умным восстановлением для DOORS)
+local function DisableNoclip()
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+        NoclipConnection = nil
+    end
+
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    -- Восстанавливаем логику коллизии DOORS
+    local collision = char:FindFirstChild("Collision")
+    
+    if collision then
+        local crouch = collision:FindFirstChild("CollisionCrouch")
+        local isCrouching = char:GetAttribute("Crouching") -- Проверяем, сидим мы или нет
+        
+        -- Если сидим: Collision выкл, Crouch вкл.
+        -- Если стоим: Collision вкл, Crouch выкл.
+        collision.CanCollide = not isCrouching
+        
+        if crouch then
+            crouch.CanCollide = isCrouching
+        end
+    end
+    
+    -- Для остальных частей тела (обычно в DOORS они и так CanCollide false, но на всякий случай)
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if root then root.CanCollide = false end -- Рут всегда должен быть false в DOORS, иначе застрянешь
+end
+
+local SelfGroup = Tabs.PlayerTab:AddRightGroupbox("Self")
+-- Полет
+SelfGroup:AddToggle("FlyToggle", {
+    Text = "Enable Fly",
+    Default = false,
+    Callback = function(Value)
+        UpdateFly(Value)
+    end
+}):AddKeyPicker("FlyKey", { Default = "F", Text = "Fly", Mode = "Toggle" })
+
+SelfGroup:AddSlider("FlySpeedSlider", {
+    Text = "Fly Speed",
+    Default = 20,
+    Min = 10,
+    Max = 100,
+    Rounding = 0,
+    Callback = function(v) FlySpeed = v end
+})
+
+-- Ноклип
+SelfGroup:AddToggle("NoclipToggle", {
+    Text = "Noclip (Improved)",
+    Default = false,
+    Tooltip = "Ходить сквозь стены. Работает с приседанием.",
+    Callback = function(Value)
+                if Value then
+            EnableNoclip()
+        else
+            DisableNoclip()
+        end
+    end
+}):AddKeyPicker("NoclipKey", { Default = "N", Text = "Noclip", Mode = "Toggle" })
 
 local ExploitSelf = Tabs.Exploit:AddLeftGroupbox("Self")
 ExploitSelf:AddToggle("ES_AlwaysJump", { Text = "Always Enable Jumping", Default = false, Tooltip = "Enables jumping at all times." })
@@ -515,16 +617,6 @@ VisualsRemovals:AddToggle("VR_NoGlitchJumpscare", { Text = "Remove Glitch Jumpsc
 VisualsRemovals:AddToggle("VR_NoVoidEffect", { Text = "Remove Void Jumpscare", Default = false, Tooltip = "Removes the client sided void effect." })
 VisualsRemovals:AddToggle("VR_NoSeekEffects", { Text = "Remove Seek Room Effects", Default = false, Tooltip = "Removes the client sided seek eyes and texture effects during the teasing and chase." })
 
-local MiscMovement = Tabs.Misc:AddLeftGroupbox("Movement")
-MiscMovement:AddToggle("MM_Walkspeed", { Text = "Enable Speed Modifier", Default = false, Tooltip = "Sets player speed according to value set." })
-MiscMovement:AddSlider("MM_Walkspeed_S", { Text = "Walkspeed Amount", Default = 20, Min = 10, Max = 50, Rounding = 0, Compact = true, Tooltip = "Controls the player walkspeed amount." })
-MiscMovement:AddSlider("MM_Walkspeed_Boost", { Text = "Ladder Speed Boost", Default = 0, Min = 0, Max = 50, Rounding = 0, Compact = true, Tooltip = "Speed boost for climbing up ladders. High values may become unstable." })
-MiscMovement:AddDivider()
-MiscMovement:AddToggle("MM_Jump", { Text = "Enable Jump Power Modifier", Default = false, Tooltip = "Allow to mofify jump power." })
-MiscMovement:AddSlider("MM_Jump_S", { Text = "Jump Power", Default = 20, Min = 10, Max = 50, Rounding = 0, Compact = true, Tooltip = "Controls the player jump power." })
-MiscMovement:AddDivider()
-MiscMovement:AddToggle("MM_NoAcceleration", { Text = "No Acceleration", Default = false, Tooltip = "Removes acceleration while moving or switching direction." })
-
 local MiscAudio = Tabs.Misc:AddRightGroupbox("Audio")
 MiscAudio:AddToggle("MA_SilentJammin", { Text = "Silent Jammin Modifier", Default = false, Tooltip = "Removes the jeffs shop jammin modifier music." })
 MiscAudio:AddDivider()
@@ -750,29 +842,108 @@ task.spawn(AutoItemLoop)
 
 -- [[ ENGLISH MULTI-LOOT LOGIC END ]] --
 
-task.spawn(function()
-    local EntityNames = {"RushMoving", "AmbushMoving", "A60", "A120"}
-    
-    workspace.ChildAdded:Connect(function(child)
-        if AutoAvoidEnabled and table.find(EntityNames, child.Name) then
-            -- Если мы еще не в полете - взлетаем
-            if not Toggles.GodModeToggle.Value then
-                Library:Notify("Опасность! Авто-уклонение активировано!", 5)
-                Toggles.GodModeToggle:SetValue(true)
-                
-                -- Ждем пока монстр исчезнет
-                repeat task.wait(0.5) until not child.Parent
-                
-                -- Ждем еще немного для верности
-                task.wait(1.5)
-                
-                -- Спускаемся
-                Library:Notify("Опасность миновала. Спуск.", 3)
-                Toggles.GodModeToggle:SetValue(false)
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- 1. NOCLIP LOGIC (Improved)
+local NoclipConnection = nil
+local function UpdateNoclip(state)
+    if state then
+        if NoclipConnection then return end
+        NoclipConnection = RunService.Stepped:Connect(function()
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in pairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") and part.CanCollide then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        if NoclipConnection then
+            NoclipConnection:Disconnect()
+            NoclipConnection = nil
+        end
+        -- Восстановление коллизии для DOORS
+        local char = LocalPlayer.Character
+        if char then
+            local root = char:FindFirstChild("HumanoidRootPart")
+            if root then root.CanCollide = false end -- Рут всегда без коллизии
+            
+            local collision = char:FindFirstChild("Collision")
+            if collision then
+                local isCrouching = char:GetAttribute("Crouching")
+                collision.CanCollide = not isCrouching
+                if collision:FindFirstChild("CollisionCrouch") then
+                    collision.CollisionCrouch.CanCollide = isCrouching
+                end
             end
         end
-    end)
-end)
+    end
+end
+
+-- 2. FLY LOGIC (CFrame Fly)
+local FlyConnection = nil
+local FlySpeed = 20
+local function UpdateFly(state)
+    if state then
+        if FlyConnection then return end
+        
+        local Root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not Root then return end
+        
+        -- Отключаем физику чтобы не падать
+        local BodyVel = Instance.new("BodyVelocity")
+        BodyVel.Name = "FlyVel"
+        BodyVel.Parent = Root
+        BodyVel.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        BodyVel.Velocity = Vector3.zero
+        
+        FlyConnection = RunService.RenderStepped:Connect(function(dt)
+            local Char = LocalPlayer.Character
+            local Hum = Char and Char:FindFirstChild("Humanoid")
+            local Root = Char and Char:FindFirstChild("HumanoidRootPart")
+            local Cam = workspace.CurrentCamera
+            
+            if not Root or not Hum then return end
+            
+            local MoveDir = Vector3.zero
+            
+            -- Управление (WASD + Space/Shift)
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then MoveDir = MoveDir + Cam.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then MoveDir = MoveDir - Cam.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then MoveDir = MoveDir + Cam.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then MoveDir = MoveDir - Cam.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then MoveDir = MoveDir + Vector3.new(0, 1, 0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then MoveDir = MoveDir - Vector3.new(0, 1, 0) end
+            
+            if MoveDir.Magnitude > 0 then
+                Root.CFrame = Root.CFrame + (MoveDir.Unit * FlySpeed * dt)
+            end
+            
+            -- Держим персонажа в воздухе
+            Root.Velocity = Vector3.zero
+            Hum.PlatformStand = true
+        end)
+    else
+        if FlyConnection then
+            FlyConnection:Disconnect()
+            FlyConnection = nil
+        end
+        
+        local Root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if Root and Root:FindFirstChild("FlyVel") then
+            Root.FlyVel:Destroy()
+        end
+        
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.PlatformStand = false
+        end
+    end
+end
 
 local A90Hook
 local ScreechHook
