@@ -189,6 +189,35 @@ function Script.Functions.DoorESP(room)
     end
 end 
 
+-- [[ BOX ESP FUNCTION ]] --
+
+-- Добавляем категорию в таблицу (если её нет)
+Script.ESPTable.Box = {}
+
+function Script.Functions.BoxESP(args)
+    if not args.Object then return end
+
+    -- Создаем красивый 3D бокс (SelectionBox)
+    local box = Instance.new("SelectionBox")
+    box.Name = "NexusBox"
+    box.Adornee = args.Object -- Он сам примет размер объекта!
+    box.Parent = args.Object
+    
+    -- Настройки вида
+    box.Color3 = args.Color or Color3.new(1,1,1)
+    box.LineThickness = 0.04 -- Тонкие аккуратные линии
+    box.SurfaceTransparency = 0.85 -- Слегка прозрачная заливка внутри
+    box.Transparency = 0.3 -- Прозрачность линий
+    
+    -- Для красоты: всегда поверх стен (как ВХ)
+    -- Если хочешь, чтобы стены скрывали бокс, удали эту строку
+    -- box.ZIndex = 5 
+
+    -- Сохраняем, чтобы потом удалить
+    table.insert(Script.ESPTable.Box, box)
+    return box
+end
+
 function Script.Functions.ObjectiveESP(child)
     if child.Name == "TimerLever" then
         Script.Functions.ESP({
@@ -401,6 +430,15 @@ ESPTab:AddToggle("GuidingLightESP", {Text = "Guiding Light", Default = false}):A
 
 ESPSettingsTab:AddToggle("ESPHighlight", {Text = "Enable Highlight", Default = true})
 ESPSettingsTab:AddToggle("ESPTracer", {Text = "Enable Tracer", Default = true})
+-- Добавляем кнопку боксов
+ESPTab:AddToggle("BoxESP", {
+    Text = "Hitbox ESP (3D Box)", 
+    Default = false,
+    Tooltip = "Показывает реальные размеры объектов и монстров."
+}):AddColorPicker("BoxColor", {
+    Default = Color3.fromRGB(255, 255, 255), 
+    Title = "Box Color" 
+})
 ESPSettingsTab:AddToggle("ESPRainbow", {Text = "Rainbow ESP", Default = false})
 ESPSettingsTab:AddSlider("ESPFillTransparency", {Text = "Fill Transparency", Default = 0.75, Min = 0, Max = 1, Rounding = 2})
 ESPSettingsTab:AddSlider("ESPOutlineTransparency", {Text = "Outline Transparency", Default = 0, Min = 0, Max = 1, Rounding = 2})
@@ -514,6 +552,29 @@ local function UpdateRoomESP()
             if Toggles.ChestESP.Value and asset:GetAttribute("Storage") == "ChestBox" then task.spawn(Script.Functions.ChestESP, asset) end
             if Toggles.HidingSpotESP.Value and (asset:GetAttribute("LoadModule") == "Wardrobe" or asset:GetAttribute("LoadModule") == "Bed" or asset.Name == "Rooms_Locker") then Script.Functions.HidingSpotESP(asset) end
             if Toggles.GoldESP.Value and asset.Name == "GoldPile" then Script.Functions.GoldESP(asset) end
+                                    if Toggles.BoxESP.Value then
+                local shouldDrawBox = false
+                
+                -- Проверка на Монстров
+                if table.find(SideEntityName, asset.Name) or table.find(EntityName, asset.Name) then
+                    shouldDrawBox = true
+                end
+                
+                -- Проверка на Предметы
+                if Script.Functions.ItemCondition(asset) then
+                    shouldDrawBox = true
+                end
+
+                -- Проверка на Ключевые объекты
+                if asset.Name == "KeyObtain" or asset.Name == "LeverForGate" or asset.Name == "MinesGenerator" or asset.Name == "MinesAnchor" then
+                    shouldDrawBox = true
+                end
+                
+                if shouldDrawBox then
+                    -- Вызываем функцию создания бокса (убедись, что она есть в Script.Functions!)
+                    Script.Functions.BoxESP({Object = asset, Color = Options.BoxColor.Value})
+                end
+            end
         end
     end
 end
@@ -577,7 +638,6 @@ end)
 Library:OnUnload(function()
     for _, espType in pairs(Script.ESPTable) do
         for _, esp in pairs(espType) do
-            esp:Destroy()
         end
     end
     print("ESP Unloaded")
