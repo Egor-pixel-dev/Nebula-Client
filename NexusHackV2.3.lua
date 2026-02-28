@@ -3224,15 +3224,20 @@ task.spawn(function()
     end
 end)
 
+
+-- // 2. УЛЬТРА ЛУТ АУРА (Всё в одном цикле)
 task.spawn(function()
-    while task.wait(0.1) and not Library.Unloaded do
+    while task.wait(0.1) do
+        if Library.Unloaded then break end
+        
         pcall(function()
-            local char = LocalPlayer.Character
-            if not char or not char:FindFirstChild("Collision") then return end
-            local root = char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart
+            local char = LP.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
             if not root then return end
 
-            -- // 1. INSTANT INTERACT (Твоя оригинальная часть) //
+            local currentRoomNum = game.ReplicatedStorage.GameData.LatestRoom.Value
+            local isFigureRoom = (currentRoomNum == 50 or currentRoomNum == 100)
+            
             if Toggles.GA_InstantInteract.Value then
                 for _, prompt in pairs(workspace:GetDescendants()) do
                     if prompt:IsA("ProximityPrompt") and prompt.HoldDuration > 0 then
@@ -3240,75 +3245,69 @@ task.spawn(function()
                     end
                 end
             end
-
-            -- Получаем данные о комнате
-            local latestRoomVal = game:GetService("ReplicatedStorage").GameData.LatestRoom.Value
-            local isFigureRoom = (latestRoomVal == 50 or latestRoomVal == 100)
-            local currentRoom = workspace.CurrentRooms:FindFirstChild(tostring(latestRoomVal))
-            if not currentRoom then return end
-
-            -- Сканируем объекты
-            for _, v in pairs(currentRoom:GetDescendants()) do
-                if v:IsA("Model") or v:IsA("BasePart") then
-                    local name = v.Name
-                    local prompt = v:FindFirstChildWhichIsA("ProximityPrompt", true)
+            
+            -- Ищем промпты в текущей и соседних комнатах
+            for _, room in pairs(workspace.CurrentRooms:GetChildren()) do
+                for _, obj in pairs(room:GetDescendants()) do
                     
-                    if prompt and prompt.Enabled then
-                        local dist = (root.Position - v:GetPivot().Position).Magnitude
-                        if dist <= 18 then -- Дистанция работы ауры
-                            
-                            local interactionMatched = false
+                    local prompt = obj:IsA("ProximityPrompt") and obj or obj:FindFirstChildWhichIsA("ProximityPrompt")
+                    if not prompt or not prompt.Enabled then continue end
 
-                            -- --- НОВАЯ СПЕЦИФИЧЕСКАЯ ЛОГИКА ---
-                            
-                            -- 1. Книги (Room 50)
-                            if name == "LiveHintBook" and Toggles.GA_BookAura.Value then
-                                interactionMatched = true
-                            
-                            -- 2. Брейкеры (Room 100)
-                            elseif name == "LiveBreakerPolePickup" and Toggles.GA_BreakerAura.Value then
-                                interactionMatched = true
-                            
-                            -- 3. Вентили (Room 200 крутилки)
-                            elseif (name == "Valve" or name == "WaterPump") and Toggles.GA_ValveAura.Value then
-                                interactionMatched = true
-                            
-                            -- 4. Рычаги (Решетки)
-                            elseif name == "LeverForGate" and Toggles.GA_LeverAura.Value then
-                                interactionMatched = true
+                    local dist = (root.Position - obj:GetPivot().Position).Magnitude
+                    if dist > 20 then continue end
 
-                            -- 5. Кнопки (Шахты)
-                            elseif name == "MinesGateButton" and Toggles.GA_ButtonAura.Value then
-                                interactionMatched = true
+                    local name = obj.Name:lower()
+                    local shouldFire = false
 
-                            -- 6. Генератор (Авто-фьюз + рычаг)
-                            elseif name == "MinesGenerator" and Toggles.GA_GeneratorAura.Value then
-                                -- Если есть фьюз в инвентаре - вставляем
-                                local hasFuse = char:FindFirstChild("Fuse") or LocalPlayer.Backpack:FindFirstChild("Fuse")
-                                if hasFuse or v:FindFirstChild("Lever") then
-                                    interactionMatched = true
-                                end
+                    -- --- Специфические объекты ---
+                    
+                    -- Книги
+                    if name == "livehintbook" and _G.AuraBooks then
+                        shouldFire = true
+                    
+                    -- Брейкеры (Room 100)
+                    elseif name == "livebreakerpolepickup" and _G.AuraBreakers then
+                        shouldFire = true
 
-                            -- --- ТВОЯ СТАРАЯ ЛОГИКА ЛУТА ---
-                            
-                            -- Если включен Safe Figure, обычный лут игнорируем в 50/100
-                            elseif Toggles.GA_LootAura.Value and not (Toggles.GA_SafeFigure.Value and isFigureRoom) then
-                                if name == "DrawerContainer" then
-                                    local knob = v:FindFirstChild("Knobs")
-                                    if knob then 
-                                        local interactions = knob.ActivateEventPrompt:GetAttribute("Interactions")
-                                        if not interactions then interactionMatched = true end
-                                    end
-                                elseif name == "GoldPile" or v:FindFirstChild("ModulePrompt") or name:sub(1, 8) == "ChestBox" or name == "RolltopContainer" then
-                                    interactionMatched = true
-                                end
-                            end
+                    -- Вентили (Valve - Room 200)
+                    elseif (name:find("valve") or name == "waterpump") and _G.AuraValves then
+                        shouldFire = true
 
-                            -- Активация
-                            if interactionMatched then
-                                fireproximityprompt(prompt)
+                    -- Рычаги (LeverForGate)
+                    elseif name:find("lever") and _G.AuraLevers then
+                        if not prompt:GetAttribute("Interactions") then shouldFire = true end
+
+                    -- Кнопки (Mines)
+                    elseif name:find("button") and _G.AuraButtons then
+                        shouldFire = true
+
+                    -- Генератор (Авто-вставка)
+                    elseif name == "minesgenerator" and _G.AuraGenerator then
+                        local fuse = char:FindFirstChild("Fuse") or LP.Backpack:FindFirstChild("Fuse")
+                        if fuse then
+                            fuse.Parent = char -- Берем в руку
+                            shouldFire = true
+                        end
+                        if obj:FindFirstChild("Lever") then shouldFire = true end
+
+                    -- --- Обычный лут (Drawer, Gold, Items) ---
+                    elseif _G.LootAura then
+                        -- Если Safe Figure включен, пропускаем ящики в 50/100
+                        local isForbidden = _G.SafeFigure and isFigureRoom
+                        
+                        if not isForbidden then
+                            if name == "drawercontainer" or name == "dresser" or name == "knobs" then
+                                if not prompt:GetAttribute("Interactions") then shouldFire = true end
+                            elseif name == "goldpile" or obj:FindFirstChild("ModulePrompt") or name:find("chestbox") then
+                                shouldFire = true
                             end
                         end
+                    end
+
+                    if shouldFire then
+                        -- Убираем задержку
+                        prompt.HoldDuration = 0
+                        fireproximityprompt(prompt)
                     end
                 end
             end
