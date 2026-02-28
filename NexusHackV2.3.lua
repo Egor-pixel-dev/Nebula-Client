@@ -53,6 +53,14 @@ GeneralAutomation:AddDropdown("GA_AutoInteract_Options", { Values = { "Use Lockp
 GeneralAutomation:AddSlider("GA_AutoInteract_Range", { Text = "Range Multiplier", Default = 1, Min = 1, Max = 2, Rounding = 1, Compact = false })
 GeneralAutomation:AddToggle("GA_InstantInteract", { Text = "Instant Interact", Default = false })
 GeneralAutomation:AddToggle("GA_LootAura", { Text = "Loot Aura (Items & Gold)", Default = false })
+GeneralAutomation:AddToggle("GA_LootAura", { Text = "Loot Aura (Master)", Default = false })
+GeneralAutomation:AddToggle("GA_LootAura_Figure", { Text = "Disable on Figure (Safe)", Default = false })
+GeneralAutomation:AddDivider()
+GeneralAutomation:AddToggle("GA_BookAura", { Text = "Auto Book Aura", Default = false })
+GeneralAutomation:AddToggle("GA_ValveAura", { Text = "Auto Valve/Lever Aura", Default = false })
+GeneralAutomation:AddToggle("GA_ButtonAura", { Text = "Auto Button Aura (Mines)", Default = false })
+GeneralAutomation:AddToggle("GA_GeneratorAura", { Text = "Auto Generator (Fuses)", Default = false })
+GeneralAutomation:AddToggle("GA_BreakerAura", { Text = "Auto Breaker Pole Aura", Default = false })
 GeneralAutomation:AddDivider()
 GeneralAutomation:AddToggle("GA_EatCandies", { Text = "Automatic Candy Use", Default = false, }):AddKeyPicker("GA_EatCandies_K", { Default = "V", SyncToggleState = false, Mode = "Hold", Text = "Auto Use Candy", NoUI = false, Tooltip = "Will eat all candy in the player inventory when key is active." })
 GeneralAutomation:AddToggle("GA_AutoHide", { Text = "Automatic Hide", Default = false, Tooltip = "Will automatically predict entities and hide in the nearest available spot when enabled." })
@@ -519,61 +527,11 @@ ESPPlayers:AddToggle("ESPP_Enabled", { Text = "Enabled", Default = false })
 :AddColorPicker("ESPPLAYEROUTLINECOLOR", { Default = Color3.new(1, 1, 1), Title = "Outline Color" })
 
 
-local ESPInteractables = Tabs.ESP:AddRightTabbox("Interactables")
-
-local ESPInteractables_Main = ESPInteractables:AddTab("Main")
-ESPInteractables_Main:AddToggle("ESPI_M_Enabled", { Text = "Enabled", Default = false })
-ESPInteractables_Main:AddDivider()
-ESPInteractables_Main:AddToggle("ESPI_M_Name", { Text = "Name", Default = false })
-ESPInteractables_Main:AddToggle("ESPI_M_Distance", { Text = "Distance", Default = false })
-ESPInteractables_Main:AddToggle("ESPI_M_Fill", { Text = "Highlight Fill", Default = false })
-ESPInteractables_Main:AddToggle("ESPI_M_Enabled", { Text = "Highlight Outline", Default = false })
-
--- BRO IM SO SORRY LINORIA MADE ME DO IT THIS WAY PLEASE LORD FORGIVE ME
-local ESPInteractables_Configurate = ESPInteractables:AddTab("Configurate")
-ESPInteractables_Configurate:AddToggle("ESPI_C_Doors", { Text = "Door", Default = false })
-:AddColorPicker("ESPI_C_Doors_F", { Default = Color3.new(1, 1, 1), Title = "Fill Color" })
-:AddColorPicker("ESPI_C_Doors_O", { Default = Color3.new(1, 1, 1), Title = "Outline Color" })
-
-ESPInteractables_Configurate:AddToggle("ESPI_C_DoorKeys", { Text = "Door Key", Default = false })
-:AddColorPicker("ESPI_C_DoorKeys_F", { Default = Color3.new(1, 1, 1), Title = "Fill Color" })
-:AddColorPicker("ESPI_C_DoorKeys_O", { Default = Color3.new(1, 1, 1), Title = "Outline Color" })
-
-ESPInteractables_Configurate:AddToggle("ESPI_C_GoldPiles", { Text = "Door", Default = false })
-:AddColorPicker("ESPI_C_GoldPiles_F", { Default = Color3.new(1, 1, 1), Title = "Fill Color" })
-:AddColorPicker("ESPI_C_GoldPiles_O", { Default = Color3.new(1, 1, 1), Title = "Outline Color" })
-
-ESPInteractables_Configurate:AddToggle("ESPI_C_GeneratorFuses", { Text = "Generator Fuse", Default = false })
-:AddColorPicker("ESPI_C_GeneratorFuses_F", { Default = Color3.new(1, 1, 1), Title = "Fill Color" })
-:AddColorPicker("ESPI_C_GeneratorFuses_O", { Default = Color3.new(1, 1, 1), Title = "Outline Color" })
-
-ESPInteractables_Configurate:AddToggle("ESPI_C_Generators", { Text = "Generator", Default = false })
-:AddColorPicker("ESPI_C_Generators_F", { Default = Color3.new(1, 1, 1), Title = "Fill Color" })
-:AddColorPicker("ESPI_C_Generators_O", { Default = Color3.new(1, 1, 1), Title = "Outline Color" })
-
-ESPInteractables_Configurate:AddToggle("ESPI_C_GateLevers", { Text = "Gate Lever", Default = false })
-:AddColorPicker("ESPI_C_GateLevers_F", { Default = Color3.new(1, 1, 1), Title = "Fill Color" })
-:AddColorPicker("ESPI_C_GateLevers_O", { Default = Color3.new(1, 1, 1), Title = "Outline Color" })
-
-ESPInteractables_Configurate:AddToggle("ESPI_C_LibraryBooks", { Text = "Library Book", Default = false })
-:AddColorPicker("ESPI_C_LibraryBooks_F", { Default = Color3.new(1, 1, 1), Title = "Fill Color" })
-:AddColorPicker("ESPI_C_LibraryBooks_O", { Default = Color3.new(1, 1, 1), Title = "Outline Color" })
-
-ESPInteractables_Configurate:AddToggle("ESPI_C_BreakerPoles", { Text = "Breaker Pole", Default = false })
-:AddColorPicker("ESPI_C_BreakerPoles_F", { Default = Color3.new(1, 1, 1), Title = "Fill Color" })
-:AddColorPicker("ESPI_C_BreakerPoles_O", { Default = Color3.new(1, 1, 1), Title = "Outline Color" })
-
-ESPInteractables_Configurate:AddToggle("ESPI_C_Anchors", { Text = "Anchor", Default = false })
-:AddColorPicker("ESPI_C_Anchors_F", { Default = Color3.new(1, 1, 1), Title = "Fill Color" })
-:AddColorPicker("ESPI_C_Anchors_O", { Default = Color3.new(1, 1, 1), Title = "Outline Color" })
-
-ESPInteractables_Configurate:AddToggle("ESPI_C_BackroomsLevers", { Text = "Timer Lever", Default = false })
-:AddColorPicker("ESPI_C_BackroomsLevers_F", { Default = Color3.new(1, 1, 1), Title = "Fill Color" })
-:AddColorPicker("ESPI_C_BackroomsLevers_O", { Default = Color3.new(1, 1, 1), Title = "Outline Color" })
-
-ESPInteractables_Configurate:AddToggle("ESPI_C_MiscPickups", { Text = "Misc Items", Default = false })
-:AddColorPicker("ESPI_C_MiscPickups_F", { Default = Color3.new(1, 1, 1), Title = "Fill Color" })
-:AddColorPicker("ESPI_C_MiscPickups_O", { Default = Color3.new(1, 1, 1), Title = "Outline Color" })
+local ESPStatusGroup = Tabs.ESP:AddRightGroupbox("Interactables")
+ESPStatusGroup:AddLabel("Status: Outdated")
+ESPStatusGroup:AddButton("Load NexusESP", function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Egor-pixel-dev/Nebula-Client/main/esp.lua"))()
+end)
 
 local ESPSettings = Tabs.ESP:AddRightGroupbox("ESP Settings")
 ESPSettings:AddDropdown("ESPS_Font", { Values = { "Arial", "SourceSans", "Highway", "Fantasy", "Gotham", "DenkOne", "JosefinSans", "Nunito", "Oswald", "RobotoMono", "Sarpanch", "Ubuntu" }, Default = 9, Multi = false, Text = "Text Font" })
@@ -3267,72 +3225,92 @@ task.spawn(function()
 end)
 
 task.spawn(function()
-    while task.wait(0.2) and not Library.Unloaded do
+    while task.wait(0.1) and not Library.Unloaded do
         pcall(function()
-            local Character = LocalPlayer.Character
-            if Character and Character:FindFirstChild("Collision") then
-                local RootPart = Character.PrimaryPart or Character:FindFirstChild("HumanoidRootPart")
-                
-                -- // INSTANT INTERACT (Мгновенное нажатие) //
-                if Toggles.GA_InstantInteract.Value then
-                    -- Перебираем все промпты рядом и ставим им длительность 0
-                    for _, prompt in pairs(workspace:GetDescendants()) do
-                        if prompt:IsA("ProximityPrompt") then
-                            if prompt.HoldDuration > 0 then
-                                prompt.HoldDuration = 0
-                            end
-                        end
+            local char = LocalPlayer.Character
+            if not char or not char:FindFirstChild("Collision") then return end
+            local root = char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart
+            if not root then return end
+
+            -- // 1. INSTANT INTERACT (Твоя оригинальная часть) //
+            if Toggles.GA_InstantInteract.Value then
+                for _, prompt in pairs(workspace:GetDescendants()) do
+                    if prompt:IsA("ProximityPrompt") and prompt.HoldDuration > 0 then
+                        prompt.HoldDuration = 0
                     end
                 end
+            end
 
-                -- // LOOT AURA (Ящики, Золото, Предметы) //
-                if Toggles.GA_LootAura.Value and RootPart then
-                    local CurrentRoom = Rooms[LocalPlayer:GetAttribute("CurrentRoom")]
+            -- Получаем данные о комнате
+            local latestRoomVal = game:GetService("ReplicatedStorage").GameData.LatestRoom.Value
+            local isFigureRoom = (latestRoomVal == 50 or latestRoomVal == 100)
+            local currentRoom = workspace.CurrentRooms:FindFirstChild(tostring(latestRoomVal))
+            if not currentRoom then return end
+
+            -- Сканируем объекты
+            for _, v in pairs(currentRoom:GetDescendants()) do
+                if v:IsA("Model") or v:IsA("BasePart") then
+                    local name = v.Name
+                    local prompt = v:FindFirstChildWhichIsA("ProximityPrompt", true)
                     
-                    if CurrentRoom then
-                        for _, v in pairs(CurrentRoom:GetDescendants()) do
-                            if v:IsA("Model") then
-                                local Prompt
-                                
-                                -- 1. Ящики (DrawerContainer)
-                                if v.Name == "DrawerContainer" then
-                                    local knob = v:FindFirstChild("Knobs")
-                                    if knob then Prompt = knob:FindFirstChild("ActivateEventPrompt") end
-                                
-                                -- 2. Золото (GoldPile)
-                                elseif v.Name == "GoldPile" then
-                                    Prompt = v:FindFirstChild("LootPrompt")
-                                
-                                -- 3. Предметы (PickupItem, KeyObtain и др.)
-                                elseif v:FindFirstChild("ModulePrompt") then
-                                    Prompt = v.ModulePrompt
-                                
-                                -- 4. Сундуки (ChestBox)
-                                elseif v.Name:sub(1, 8) == "ChestBox" then
-                                    Prompt = v:FindFirstChild("ActivateEventPrompt")
-                                
-                                -- 5. Мелочь на столах (Rolltop)
-                                elseif v.Name == "RolltopContainer" then
-                                    Prompt = v:FindFirstChild("ActivateEventPrompt")
+                    if prompt and prompt.Enabled then
+                        local dist = (root.Position - v:GetPivot().Position).Magnitude
+                        if dist <= 18 then -- Дистанция работы ауры
+                            
+                            local interactionMatched = false
+
+                            -- --- НОВАЯ СПЕЦИФИЧЕСКАЯ ЛОГИКА ---
+                            
+                            -- 1. Книги (Room 50)
+                            if name == "LiveHintBook" and Toggles.GA_BookAura.Value then
+                                interactionMatched = true
+                            
+                            -- 2. Брейкеры (Room 100)
+                            elseif name == "LiveBreakerPolePickup" and Toggles.GA_BreakerAura.Value then
+                                interactionMatched = true
+                            
+                            -- 3. Вентили (Room 200 крутилки)
+                            elseif (name == "Valve" or name == "WaterPump") and Toggles.GA_ValveAura.Value then
+                                interactionMatched = true
+                            
+                            -- 4. Рычаги (Решетки)
+                            elseif name == "LeverForGate" and Toggles.GA_LeverAura.Value then
+                                interactionMatched = true
+
+                            -- 5. Кнопки (Шахты)
+                            elseif name == "MinesGateButton" and Toggles.GA_ButtonAura.Value then
+                                interactionMatched = true
+
+                            -- 6. Генератор (Авто-фьюз + рычаг)
+                            elseif name == "MinesGenerator" and Toggles.GA_GeneratorAura.Value then
+                                -- Если есть фьюз в инвентаре - вставляем
+                                local hasFuse = char:FindFirstChild("Fuse") or LocalPlayer.Backpack:FindFirstChild("Fuse")
+                                if hasFuse or v:FindFirstChild("Lever") then
+                                    interactionMatched = true
                                 end
 
-                                -- Активация
-                                if Prompt and Prompt.Enabled then
-                                    -- Проверяем, не открыто ли уже (для ящиков)
-                                    local Interactions = Prompt:GetAttribute("Interactions")
-                                    if not Interactions then
-                                        -- Дистанция
-                                        local ObjPos = v:GetPivot().Position
-                                        if (RootPart.Position - ObjPos).Magnitude <= 15 then
-                                            fireproximityprompt(Prompt)
-                                        end
+                            -- --- ТВОЯ СТАРАЯ ЛОГИКА ЛУТА ---
+                            
+                            -- Если включен Safe Figure, обычный лут игнорируем в 50/100
+                            elseif Toggles.GA_LootAura.Value and not (Toggles.GA_SafeFigure.Value and isFigureRoom) then
+                                if name == "DrawerContainer" then
+                                    local knob = v:FindFirstChild("Knobs")
+                                    if knob then 
+                                        local interactions = knob.ActivateEventPrompt:GetAttribute("Interactions")
+                                        if not interactions then interactionMatched = true end
                                     end
+                                elseif name == "GoldPile" or v:FindFirstChild("ModulePrompt") or name:sub(1, 8) == "ChestBox" or name == "RolltopContainer" then
+                                    interactionMatched = true
                                 end
+                            end
+
+                            -- Активация
+                            if interactionMatched then
+                                fireproximityprompt(prompt)
                             end
                         end
                     end
                 end
-                
             end
         end)
     end
