@@ -3224,15 +3224,19 @@ task.spawn(function()
     end
 end)
 
+-- // 2. УЛУЧШЕННАЯ ЛУТ АУРА //
 task.spawn(function()
     while task.wait(0.1) and not Library.Unloaded do
         pcall(function()
             local char = LocalPlayer.Character
-            if not char or not char:FindFirstChild("Collision") then return end
+            if not char then return end
             local root = char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart
-            if not root then return end
+            
+            -- Получаем текущую комнату
+            local roomNum = LocalPlayer:GetAttribute("CurrentRoom")
+            local room = workspace.CurrentRooms:FindFirstChild(tostring(roomNum))
+            if not room then return end
 
-            -- // 1. INSTANT INTERACT (Твоя оригинальная часть) //
             if Toggles.GA_InstantInteract.Value then
                 for _, prompt in pairs(workspace:GetDescendants()) do
                     if prompt:IsA("ProximityPrompt") and prompt.HoldDuration > 0 then
@@ -3241,71 +3245,66 @@ task.spawn(function()
                 end
             end
 
-            -- Получаем данные о комнате
-            local latestRoomVal = game:GetService("ReplicatedStorage").GameData.LatestRoom.Value
-            local isFigureRoom = (latestRoomVal == 50 or latestRoomVal == 100)
-            local currentRoom = workspace.CurrentRooms:FindFirstChild(tostring(latestRoomVal))
-            if not currentRoom then return end
+            local isFigureRoom = (roomNum == 50 or roomNum == 100)
 
-            -- Сканируем объекты
-            for _, v in pairs(currentRoom:GetDescendants()) do
+            for _, v in pairs(room:GetDescendants()) do
                 if v:IsA("Model") or v:IsA("BasePart") then
-                    local name = v.Name
                     local prompt = v:FindFirstChildWhichIsA("ProximityPrompt", true)
-                    
                     if prompt and prompt.Enabled then
                         local dist = (root.Position - v:GetPivot().Position).Magnitude
-                        if dist <= 18 then -- Дистанция работы ауры
-                            
-                            local interactionMatched = false
+                        
+                        if dist <= 18 then -- Дистанция работы
+                            local name = v.Name
+                            local shouldInteract = false
 
-                            -- --- НОВАЯ СПЕЦИФИЧЕСКАЯ ЛОГИКА ---
-                            
-                            -- 1. Книги (Room 50)
+                            -- --- НОВЫЕ ОБЪЕКТЫ (ПО ТВОЕМУ ЗАПРОСУ) ---
+
+                            -- Книги (Room 50)
                             if name == "LiveHintBook" and Toggles.GA_BookAura.Value then
-                                interactionMatched = true
+                                shouldInteract = true
                             
-                            -- 2. Брейкеры (Room 100)
+                            -- Брейкеры (Room 100)
                             elseif name == "LiveBreakerPolePickup" and Toggles.GA_BreakerAura.Value then
-                                interactionMatched = true
+                                shouldInteract = true
                             
-                            -- 3. Вентили (Room 200 крутилки)
+                            -- Вентили (Крутилки в 200 комнате)
                             elseif (name == "Valve" or name == "WaterPump") and Toggles.GA_ValveAura.Value then
-                                interactionMatched = true
+                                shouldInteract = true
                             
-                            -- 4. Рычаги (Решетки)
+                            -- Рычаги для решеток
                             elseif name == "LeverForGate" and Toggles.GA_LeverAura.Value then
-                                interactionMatched = true
+                                if not v:GetAttribute("Interactions") then shouldInteract = true end
 
-                            -- 5. Кнопки (Шахты)
+                            -- Кнопки в Шахтах
                             elseif name == "MinesGateButton" and Toggles.GA_ButtonAura.Value then
-                                interactionMatched = true
+                                shouldInteract = true
 
-                            -- 6. Генератор (Авто-фьюз + рычаг)
+                            -- Генератор (Авто-вставка ламп + рычаг)
                             elseif name == "MinesGenerator" and Toggles.GA_GeneratorAura.Value then
-                                -- Если есть фьюз в инвентаре - вставляем
                                 local hasFuse = char:FindFirstChild("Fuse") or LocalPlayer.Backpack:FindFirstChild("Fuse")
-                                if hasFuse or v:FindFirstChild("Lever") then
-                                    interactionMatched = true
-                                end
+                                if hasFuse or v:FindFirstChild("Lever") then shouldInteract = true end
 
-                            -- --- ТВОЯ СТАРАЯ ЛОГИКА ЛУТА ---
-                            
-                            -- Если включен Safe Figure, обычный лут игнорируем в 50/100
-                            elseif Toggles.GA_LootAura.Value and not (Toggles.GA_SafeFigure.Value and isFigureRoom) then
-                                if name == "DrawerContainer" then
-                                    local knob = v:FindFirstChild("Knobs")
-                                    if knob then 
-                                        local interactions = knob.ActivateEventPrompt:GetAttribute("Interactions")
-                                        if not interactions then interactionMatched = true end
+                            -- --- ТВОЯ СТАРАЯ ЛОГИКА (БЕЗ ПОТЕРЬ) ---
+                            elseif Toggles.GA_LootAura.Value then
+                                -- Проверка Safe Figure (отключает тумбочки/золото рядом с Фигурой)
+                                if not (Toggles.GA_SafeFigure.Value and isFigureRoom) then
+                                    if name == "DrawerContainer" or name == "Dresser" then
+                                        local knob = v:FindFirstChild("Knobs") or v:FindFirstChild("Knob")
+                                        if knob then 
+                                            local promptObj = knob:FindFirstChildWhichIsA("ProximityPrompt", true)
+                                            if promptObj and not promptObj:GetAttribute("Interactions") then
+                                                shouldInteract = true
+                                                prompt = promptObj
+                                            end
+                                        end
+                                    elseif name == "GoldPile" or v:FindFirstChild("ModulePrompt") or name:find("ChestBox") or name == "RolltopContainer" then
+                                        shouldInteract = true
                                     end
-                                elseif name == "GoldPile" or v:FindFirstChild("ModulePrompt") or name:sub(1, 8) == "ChestBox" or name == "RolltopContainer" then
-                                    interactionMatched = true
                                 end
                             end
 
-                            -- Активация
-                            if interactionMatched then
+                            -- Финальное действие
+                            if shouldInteract then
                                 fireproximityprompt(prompt)
                             end
                         end
